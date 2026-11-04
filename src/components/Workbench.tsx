@@ -1,7 +1,8 @@
 "use client";
 
-import { Cable, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
+import { Activity, Cable, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
 import { useState } from "react";
+import { AnalogStudio } from "@/components/AnalogStudio";
 import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
 import { HarnessStudio } from "@/components/HarnessStudio";
@@ -13,7 +14,7 @@ import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
 import { fmtA, fmtTemp, fmtW } from "@/lib/format";
 
-type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb";
+type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb" | "analog";
 
 const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] = [
   { id: "power", label: "Power tree", detail: "Budget", icon: Zap },
@@ -22,6 +23,7 @@ const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] =
   { id: "protect", label: "Protection", detail: "ISO 7637", icon: Shield },
   { id: "harness", label: "Harness", detail: "I²t", icon: Unplug },
   { id: "pcb", label: "PCB", detail: "Impedance", icon: Layers },
+  { id: "analog", label: "Analog", detail: "ADC / NTC", icon: Activity },
   { id: "can", label: "CAN bus", detail: "Physical", icon: Cable }
 ];
 
@@ -49,7 +51,7 @@ function Shell() {
           {TOOLS.map((item) => {
             const Icon = item.icon;
             const active = tool === item.id;
-            const accent = item.id === "bulk" || item.id === "can" || item.id === "protect" || item.id === "harness" || item.id === "pcb";
+            const accent = item.id === "bulk" || item.id === "can" || item.id === "protect" || item.id === "analog";
             return (
               <button
                 key={item.id}
@@ -113,6 +115,7 @@ function Shell() {
           {tool === "protect" ? <ProtectionStudio /> : null}
           {tool === "harness" ? <HarnessStudio /> : null}
           {tool === "pcb" ? <PcbStudio /> : null}
+          {tool === "analog" ? <AnalogStudio /> : null}
           {tool === "can" ? <CanStudio /> : null}
         </div>
       </main>

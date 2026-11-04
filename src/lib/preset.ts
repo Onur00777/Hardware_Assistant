@@ -211,6 +211,26 @@ export const PRESET: Project = {
     rPlane: 20,
     platingUm: 35
   },
+  analog: {
+    vinSense: 32,
+    vAdcTarget: 3,
+    series: "E96",
+    r2Ohm: 10000,
+    vref: 3.3,
+    bits: 12,
+    cAdcF: 5e-12,
+    rAdcOhm: 1500,
+    cFiltF: 100e-9,
+    tSampleUs: 1,
+    ntcR0: 10000,
+    ntcBeta: 3950,
+    ntcT0C: 25,
+    rFixed: 10000,
+    useSteinhart: false,
+    shA: 0.001022284,
+    shB: 1 / 3950,
+    shC: 0
+  },
   capacitance: {
     vNom: 3.8,
     dropMv: 200,

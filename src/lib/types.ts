@@ -191,6 +191,37 @@ export interface PcbInput {
   platingUm: number;
 }
 
+export type ResistorSeries = "E24" | "E96";
+
+export interface AnalogInput {
+  /** Highest voltage the divider must accept, volts. */
+  vinSense: number;
+  /** ADC voltage wanted at that input, volts. */
+  vAdcTarget: number;
+  series: ResistorSeries;
+  /** Preferred bottom resistor before it is snapped to the series, ohms. */
+  r2Ohm: number;
+  vref: number;
+  bits: number;
+  /** Sample-and-hold capacitance, farads. */
+  cAdcF: number;
+  /** ADC sampling-switch resistance, ohms. */
+  rAdcOhm: number;
+  /** External hold / anti-alias capacitor, farads. */
+  cFiltF: number;
+  /** Sampling window, microseconds. */
+  tSampleUs: number;
+  ntcR0: number;
+  ntcBeta: number;
+  ntcT0C: number;
+  /** Pull-up above the NTC, ohms. */
+  rFixed: number;
+  useSteinhart: boolean;
+  shA: number;
+  shB: number;
+  shC: number;
+}
+
 export interface CanInput {
   baud: CanBaud;
   termination: Termination;
@@ -217,6 +248,7 @@ export interface Project {
   protection: ProtectionInput;
   harness: HarnessInput;
   pcb: PcbInput;
+  analog: AnalogInput;
   capacitance: CapacitanceInput;
   can: CanInput;
 }
