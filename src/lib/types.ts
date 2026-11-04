@@ -73,6 +73,35 @@ export interface CapacitanceInput {
   mlccRetention: number;
 }
 
+export type MlccCase = "0402" | "0603" | "0805" | "1206";
+export type MlccDielectric = "X5R" | "X7R";
+
+export interface MagneticsInput {
+  /** Fraction of Iout used as the inductor ripple target. 0.20–0.40 is the CCM window. */
+  rippleFraction: number;
+  /** Fractional headroom of Isat above Ipeak. */
+  satMargin: number;
+  /** Copper temperature for the DCR correction, °C. */
+  tempC: number;
+  /** "sized" uses the calculated L. Otherwise an inductor catalog id. */
+  inductorId: string;
+  /** DCR at 25 °C when inductorId is "sized", milliohms. */
+  dcrMo: number;
+  /** Core volume for iGSE when the inductor is not a catalog part, cm³. */
+  volumeCm3: number;
+  mlccCase: MlccCase;
+  mlccDielectric: MlccDielectric;
+  /** Nameplate capacitance of one MLCC, microfarads. */
+  cNomUf: number;
+  vRated: number;
+  /** DC bias the capacitor actually sees, volts. */
+  vdc: number;
+  /** ESR of one MLCC, milliohms. */
+  esrMo: number;
+  mlccCount: number;
+  mlccTempC: number;
+}
+
 export interface CanInput {
   baud: CanBaud;
   termination: Termination;
@@ -95,6 +124,7 @@ export interface Project {
   rails: Rail[];
   loads: Load[];
   regulator: RegulatorInput;
+  magnetics: MagneticsInput;
   capacitance: CapacitanceInput;
   can: CanInput;
 }

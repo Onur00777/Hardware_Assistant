@@ -6,7 +6,7 @@ import { analyzeCapacitance, type CapacitanceResult } from "@/lib/engineering/ca
 import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering/power";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
 import { createProject } from "@/lib/preset";
-import type { CanInput, CapacitanceInput, Load, Project, Rail, RegulatorInput } from "@/lib/types";
+import type { CanInput, CapacitanceInput, Load, MagneticsInput, Project, Rail, RegulatorInput } from "@/lib/types";
 
 interface WorkbenchValue {
   project: Project;
@@ -24,6 +24,7 @@ interface WorkbenchValue {
   deleteRail: (id: string) => boolean;
   deleteLoad: (id: string) => void;
   setRegulator: (patch: Partial<RegulatorInput>) => void;
+  setMagnetics: (patch: Partial<MagneticsInput>) => void;
   setCapacitance: (patch: Partial<CapacitanceInput>) => void;
   setCan: (patch: Partial<CanInput>) => void;
 }
@@ -123,6 +124,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     },
     deleteLoad: (id) => edit((current) => ({ ...current, loads: current.loads.filter((load) => load.id !== id) })),
     setRegulator: (patch) => edit((current) => ({ ...current, regulator: { ...current.regulator, ...patch } })),
+    setMagnetics: (patch) => edit((current) => ({ ...current, magnetics: { ...current.magnetics, ...patch } })),
     setCapacitance: (patch) => edit((current) => ({ ...current, capacitance: { ...current.capacitance, ...patch } })),
     setCan: (patch) => edit((current) => ({ ...current, can: { ...current.can, ...patch } }))
   };

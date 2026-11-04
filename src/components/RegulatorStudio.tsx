@@ -5,6 +5,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { useWorkbench } from "@/context/WorkbenchContext";
 import { fmtTemp, fmtW } from "@/lib/format";
 import { PACKAGES, regulatorCurve, type ThermalZoneId } from "@/lib/engineering/regulator";
+import { MagneticsPanel } from "@/components/MagneticsPanel";
 import { Equation, Metric, NumberField, Panel, Segmented, SelectField, TinyButton, Warnings, cn } from "@/components/ui";
 
 const ZONE_BAR: Record<ThermalZoneId, string> = {
@@ -303,6 +304,9 @@ export function RegulatorStudio() {
             24 V to 5 V buck
           </TinyButton>
         </div>
+      </div>
+      <div className="xl:col-span-12">
+        <MagneticsPanel />
       </div>
     </div>
   );

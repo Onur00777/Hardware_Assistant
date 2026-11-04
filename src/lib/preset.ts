@@ -79,6 +79,22 @@ export const PRESET: Project = {
     qgNc: 3.5,
     vdrive: 5
   },
+  magnetics: {
+    rippleFraction: 0.3,
+    satMargin: 0.25,
+    tempC: 40,
+    inductorId: "sized",
+    dcrMo: 15,
+    volumeCm3: 0.1,
+    mlccCase: "0603",
+    mlccDielectric: "X7R",
+    cNomUf: 22,
+    vRated: 6.3,
+    vdc: 3.8,
+    esrMo: 8,
+    mlccCount: 2,
+    mlccTempC: 40
+  },
   capacitance: {
     vNom: 3.8,
     dropMv: 200,
