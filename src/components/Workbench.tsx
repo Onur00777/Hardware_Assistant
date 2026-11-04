@@ -1,21 +1,23 @@
 "use client";
 
-import { Cable, RotateCcw, Thermometer, Waves, Zap } from "lucide-react";
+import { Cable, RotateCcw, Shield, Thermometer, Waves, Zap } from "lucide-react";
 import { useState } from "react";
 import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
 import { PowerStudio } from "@/components/PowerStudio";
+import { ProtectionStudio } from "@/components/ProtectionStudio";
 import { RegulatorStudio } from "@/components/RegulatorStudio";
 import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
 import { fmtA, fmtTemp, fmtW } from "@/lib/format";
 
-type ToolId = "power" | "thermal" | "bulk" | "can";
+type ToolId = "power" | "thermal" | "bulk" | "can" | "protect";
 
 const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] = [
   { id: "power", label: "Power tree", detail: "Budget", icon: Zap },
   { id: "thermal", label: "Regulator", detail: "Thermal", icon: Thermometer },
   { id: "bulk", label: "Bulk cap", detail: "Transient", icon: Waves },
+  { id: "protect", label: "Protection", detail: "ISO 7637", icon: Shield },
   { id: "can", label: "CAN bus", detail: "Physical", icon: Cable }
 ];
 
@@ -43,7 +45,7 @@ function Shell() {
           {TOOLS.map((item) => {
             const Icon = item.icon;
             const active = tool === item.id;
-            const accent = item.id === "bulk" || item.id === "can";
+            const accent = item.id === "bulk" || item.id === "can" || item.id === "protect";
             return (
               <button
                 key={item.id}
@@ -104,6 +106,7 @@ function Shell() {
           {tool === "power" ? <PowerStudio /> : null}
           {tool === "thermal" ? <RegulatorStudio /> : null}
           {tool === "bulk" ? <CapStudio /> : null}
+          {tool === "protect" ? <ProtectionStudio /> : null}
           {tool === "can" ? <CanStudio /> : null}
         </div>
       </main>

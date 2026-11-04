@@ -95,6 +95,28 @@ export const PRESET: Project = {
     mlccCount: 2,
     mlccTempC: 40
   },
+  protection: {
+    iRms: 1.57,
+    iPeak: 3,
+    systemV: 24,
+    vSystemMax: 32,
+    tvsId: "SMBJ33A",
+    buckId: "LMR36520",
+    pmosRdsOhm: 0.02,
+    pmosRdsHotOhm: 0.032,
+    lH: 4.7e-6,
+    cF: 10e-6,
+    rlOhm: 0.05,
+    cdF: 47e-6,
+    rdOhm: 0.68,
+    lCoilH: 0.03,
+    iCoilA: 0.5,
+    vin: 24,
+    pout: 20,
+    eta: 0.9,
+    fswHz: 400e3,
+    fCrossHz: 0
+  },
   capacitance: {
     vNom: 3.8,
     dropMv: 200,

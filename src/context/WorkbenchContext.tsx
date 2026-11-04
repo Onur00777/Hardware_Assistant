@@ -4,9 +4,10 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { analyzeCan, type CanResult } from "@/lib/engineering/can";
 import { analyzeCapacitance, type CapacitanceResult } from "@/lib/engineering/capacitance";
 import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering/power";
+import { analyzeProtection, type ProtectionResult } from "@/lib/engineering/protection";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
 import { createProject } from "@/lib/preset";
-import type { CanInput, CapacitanceInput, Load, MagneticsInput, Project, Rail, RegulatorInput } from "@/lib/types";
+import type { CanInput, CapacitanceInput, Load, MagneticsInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
 
 interface WorkbenchValue {
   project: Project;
@@ -15,6 +16,7 @@ interface WorkbenchValue {
   regulator: RegulatorResult;
   capacitance: CapacitanceResult;
   can: CanResult;
+  protection: ProtectionResult;
   reset: () => void;
   setTraceRise: (value: number) => void;
   updateRail: (id: string, patch: Partial<Rail>) => void;
@@ -25,6 +27,7 @@ interface WorkbenchValue {
   deleteLoad: (id: string) => void;
   setRegulator: (patch: Partial<RegulatorInput>) => void;
   setMagnetics: (patch: Partial<MagneticsInput>) => void;
+  setProtection: (patch: Partial<ProtectionInput>) => void;
   setCapacitance: (patch: Partial<CapacitanceInput>) => void;
   setCan: (patch: Partial<CanInput>) => void;
 }
@@ -47,6 +50,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
   const regulator = useMemo(() => analyzeRegulator(project.regulator), [project.regulator]);
   const capacitance = useMemo(() => analyzeCapacitance(project.capacitance), [project.capacitance]);
   const can = useMemo(() => analyzeCan(project.can), [project.can]);
+  const protection = useMemo(() => analyzeProtection(project.protection), [project.protection]);
 
   const value: WorkbenchValue = {
     project,
@@ -55,6 +59,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     regulator,
     capacitance,
     can,
+    protection,
     reset: () => {
       setProject(createProject());
       setDirty(false);
@@ -125,6 +130,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     deleteLoad: (id) => edit((current) => ({ ...current, loads: current.loads.filter((load) => load.id !== id) })),
     setRegulator: (patch) => edit((current) => ({ ...current, regulator: { ...current.regulator, ...patch } })),
     setMagnetics: (patch) => edit((current) => ({ ...current, magnetics: { ...current.magnetics, ...patch } })),
+    setProtection: (patch) => edit((current) => ({ ...current, protection: { ...current.protection, ...patch } })),
     setCapacitance: (patch) => edit((current) => ({ ...current, capacitance: { ...current.capacitance, ...patch } })),
     setCan: (patch) => edit((current) => ({ ...current, can: { ...current.can, ...patch } }))
   };

@@ -102,6 +102,45 @@ export interface MagneticsInput {
   mlccTempC: number;
 }
 
+export interface ProtectionInput {
+  /** Mission RMS current through the reverse-polarity device, amperes. */
+  iRms: number;
+  /** Coincident peak current, amperes. */
+  iPeak: number;
+  /** Nominal GLV, volts. 12 or 24. */
+  systemV: number;
+  /** Maximum operating voltage the TVS must stand off, volts. */
+  vSystemMax: number;
+  tvsId: string;
+  buckId: string;
+  /** P-MOSFET RDS(on) at 25 °C, ohms. */
+  pmosRdsOhm: number;
+  /** P-MOSFET RDS(on) at hot junction, used for the peak-loss column, ohms. */
+  pmosRdsHotOhm: number;
+  /** Filter inductor, henries. */
+  lH: number;
+  /** Filter shunt capacitor, farads. */
+  cF: number;
+  /** Inductor DCR, ohms. */
+  rlOhm: number;
+  /** Series damper capacitor, farads. Zero opens the damper. */
+  cdF: number;
+  /** Series damper resistor, ohms. Zero opens the damper. */
+  rdOhm: number;
+  /** Contactor or relay coil inductance, henries. */
+  lCoilH: number;
+  /** Coil current interrupted into the TVS, amperes. */
+  iCoilA: number;
+  vin: number;
+  /** Buck output power that sets the constant-power input impedance, watts. */
+  pout: number;
+  /** Buck efficiency, 0 to 1. */
+  eta: number;
+  fswHz: number;
+  /** Voltage-loop crossover. Zero selects fsw/10. */
+  fCrossHz: number;
+}
+
 export interface CanInput {
   baud: CanBaud;
   termination: Termination;
@@ -125,6 +164,7 @@ export interface Project {
   loads: Load[];
   regulator: RegulatorInput;
   magnetics: MagneticsInput;
+  protection: ProtectionInput;
   capacitance: CapacitanceInput;
   can: CanInput;
 }
