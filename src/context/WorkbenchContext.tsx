@@ -9,7 +9,7 @@ import { analyzeHarness, type HarnessResult } from "@/lib/engineering/harness";
 import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering/power";
 import { analyzeProtection, type ProtectionResult } from "@/lib/engineering/protection";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
-import { createProject } from "@/lib/preset";
+import { createBoard, type BoardPresetId } from "@/lib/preset";
 import type { AnalogInput, CanInput, CapacitanceInput, HarnessChannel, HarnessInput, Load, MagneticsInput, PcbInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
 
 interface WorkbenchValue {
@@ -23,6 +23,8 @@ interface WorkbenchValue {
   harness: HarnessResult;
   pcb: PcbResult;
   analog: AnalogResult;
+  presetId: BoardPresetId;
+  loadPreset: (id: BoardPresetId) => void;
   reset: () => void;
   setTraceRise: (value: number) => void;
   updateRail: (id: string, patch: Partial<Rail>) => void;
@@ -45,7 +47,8 @@ interface WorkbenchValue {
 const WorkbenchContext = createContext<WorkbenchValue | null>(null);
 
 export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
-  const [project, setProject] = useState<Project>(() => createProject());
+  const [presetId, setPresetId] = useState<BoardPresetId>("vcu");
+  const [project, setProject] = useState<Project>(() => createBoard("vcu"));
   const [dirty, setDirty] = useState(false);
 
   const edit = (recipe: (current: Project) => Project) => {
@@ -68,6 +71,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
   const value: WorkbenchValue = {
     project,
     dirty,
+    presetId,
     power,
     regulator,
     capacitance,
@@ -76,8 +80,13 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     harness,
     pcb,
     analog,
+    loadPreset: (id) => {
+      setPresetId(id);
+      setProject(createBoard(id));
+      setDirty(false);
+    },
     reset: () => {
-      setProject(createProject());
+      setProject(createBoard(presetId));
       setDirty(false);
     },
     setTraceRise: (traceRiseC) => edit((current) => ({ ...current, traceRiseC })),

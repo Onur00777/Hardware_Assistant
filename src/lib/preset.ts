@@ -260,3 +260,82 @@ export function createProject(): Project {
   if (rail) project.regulator.iout = Math.round(rail.out.mission.iRmsA * 1000) / 1000;
   return project;
 }
+
+export type BoardPresetId = "vcu" | "telemetry" | "stress";
+
+export const BOARD_PRESETS: { id: BoardPresetId; label: string }[] = [
+  { id: "vcu", label: "IST27 VCU Board (STM32H745 + Dual Isolated CAN + 4x High-Side Drivers + APPS/BSE Analog)" },
+  { id: "telemetry", label: "IST27 Telemetry & Datalogger (STM32H743 + Quectel LTE Cat-1 + GNSS + SDMMC + IMU)" },
+  { id: "stress", label: "Combined Stress Fault Case (SOT-23 Thermal Runaway + Undamped EMI Filter + Insufficient LTE Bulk Cap)" }
+];
+
+export function createBoard(id: BoardPresetId): Project {
+  const project = createProject();
+  if (id === "vcu") {
+    project.name = BOARD_PRESETS[0].label;
+    project.loads = project.loads
+      .filter((load) => !load.id.startsWith("load-lte") && load.id !== "load-gps" && load.id !== "load-sd")
+      .map((load) => (load.id === "load-mcu" ? { ...load, name: "STM32H745 run" } : load));
+    project.loads.push(
+      { id: "apps", name: "APPS1 / APPS2", railId: "rail5", mode: "active", currentMa: 12, dutyPct: 100 },
+      { id: "bse", name: "Brake pressure transducer", railId: "rail5", mode: "active", currentMa: 10, dutyPct: 100 }
+    );
+    const refreshed = analyzePower(project.rails, project.loads, project.traceRiseC);
+    const rail = refreshed.rails.find((item) => item.id === "rail3v3");
+    if (rail) project.regulator.iout = Math.round(rail.out.mission.iRmsA * 1000) / 1000;
+    project.regulator.packageId = "SOT-223";
+    project.regulator.architecture = "ldo";
+    project.harness.channels = project.harness.channels.map((channel) =>
+      channel.id === "brake" ? { ...channel, name: "Brake light", inrushMultiple: 4 } : channel.id === "sdc" ? { ...channel, name: "RTDS / shutdown" } : channel
+    );
+    project.analog = { ...project.analog, vinSense: 32, vAdcTarget: 3, series: "E96", r2Ohm: 10000 };
+    project.can = { ...project.can, mcu: "fdcan", baud: 500000 };
+  }
+  if (id === "telemetry") {
+    project.name = BOARD_PRESETS[1].label;
+    project.loads = project.loads
+      .filter((load) => load.id !== "load-fan")
+      .map((load) => (load.id === "load-mcu" ? { ...load, name: "STM32H743 run" } : load.id === "load-lte" ? { ...load, name: "Quectel LTE Cat-1 connected" } : load));
+    project.regulator = {
+      ...project.regulator,
+      architecture: "buck",
+      vin: 24,
+      vout: 3.8,
+      iout: 0.8,
+      iqMa: 0.25,
+      packageId: "QFN",
+      rthOverride: null,
+      fswKhz: 2100
+    };
+    project.harness.channels = project.harness.channels.filter((channel) => channel.id === "sdc").map((channel) => ({ ...channel, currentA: 0.3, loadKind: "resistive" as const }));
+    project.capacitance = { ...project.capacitance, iPeak: 2, burstUs: 577, dropMv: 200, mlccRetention: 0.5 };
+  }
+  if (id === "stress") {
+    project.name = BOARD_PRESETS[2].label;
+    project.regulator = {
+      ...project.regulator,
+      architecture: "ldo",
+      vin: 5,
+      vout: 3.3,
+      iout: 0.45,
+      iqMa: 5,
+      ta: 55,
+      packageId: "SOT-23",
+      rthOverride: null
+    };
+    project.protection = { ...project.protection, rdOhm: 0, cdF: 0, buckId: "MP2315", tvsId: "SMBJ33A" };
+    project.capacitance = {
+      ...project.capacitance,
+      iPeak: 6,
+      burstUs: 2000,
+      dropMv: 40,
+      responseUs: 250,
+      mlccRetention: 0.15,
+      esrFraction: 0.35
+    };
+    project.harness.channels = project.harness.channels.map((channel) =>
+      channel.id === "brake" ? { ...channel, inrushMultiple: 12, inrushMs: 80 } : channel
+    );
+  }
+  return project;
+}

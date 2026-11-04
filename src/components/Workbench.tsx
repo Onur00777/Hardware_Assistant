@@ -13,7 +13,8 @@ import { ProtectionStudio } from "@/components/ProtectionStudio";
 import { RegulatorStudio } from "@/components/RegulatorStudio";
 import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
-import { fmtA, fmtTemp, fmtW } from "@/lib/format";
+import { fmtTemp } from "@/lib/format";
+import { BOARD_PRESETS, type BoardPresetId } from "@/lib/preset";
 
 type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb" | "analog" | "export";
 
@@ -29,16 +30,16 @@ const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] =
   { id: "can", label: "CAN bus", detail: "Physical", icon: Cable }
 ];
 
-function toneForZone(id: string): "emerald" | "yellow" | "red" {
-  if (id === "safe") return "emerald";
-  if (id === "warning") return "yellow";
-  return "red";
-}
-
 function Shell() {
-  const { project, dirty, power, regulator, can, reset } = useWorkbench();
+  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, reset } = useWorkbench();
   const [tool, setTool] = useState<ToolId>("power");
-  const zone = regulator.valid ? toneForZone(regulator.zone.id) : "red";
+  const steadyTj = Math.max(regulator.valid ? regulator.tj : 0, ...harness.channels.map((row) => row.tjC));
+  const inrushTj = harness.channels.reduce((max, row) => Math.max(max, row.tjInrushC), 0);
+  const inrushTrips = harness.channels.some((row) => row.part !== undefined && row.tjInrushC >= row.part.tsdC);
+  const worstTj = inrushTrips ? Math.max(steadyTj, inrushTj) : steadyTj;
+  const droopMv = capacitance.recommendedSim ? (capacitance.recommendedSim.vMin - capacitance.vBrownout) * 1e3 : -1;
+  const glvOk = protection.tvs.clampOk && protection.tvs.standoffOk;
+  const canOk = can.timing.solvable && Math.abs(can.timing.ppm) < 50;
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
@@ -49,7 +50,7 @@ function Shell() {
             Power<span className="text-amber-400">Studio</span>
           </p>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col" aria-label="Calculators">
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-y-auto" aria-label="Calculators">
           {TOOLS.map((item) => {
             const Icon = item.icon;
             const active = tool === item.id;
@@ -81,11 +82,22 @@ function Shell() {
       <main className="min-w-0">
         <header className="border-b border-white/[0.08] px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                {dirty ? "Modified profile" : "Loaded preset"}
-              </p>
-              <h1 className="mt-1 max-w-3xl text-base font-medium leading-snug text-slate-100 sm:text-lg">{project.name}</h1>
+            <div className="min-w-0 flex-1">
+              <label className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500" htmlFor="board-preset">
+                {dirty ? "Modified profile" : "Board preset"}
+              </label>
+              <select
+                id="board-preset"
+                value={presetId}
+                onChange={(event) => loadPreset(event.target.value as BoardPresetId)}
+                className="mt-1 w-full max-w-3xl rounded-md border border-white/[0.08] bg-black/40 px-2 py-2 text-sm text-slate-100"
+              >
+                {BOARD_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <button
               type="button"
@@ -96,19 +108,14 @@ function Shell() {
               Reset preset
             </button>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
-            <HeaderStat label="Active power" value={`${fmtW(power.scenarios.active.inputPowerW)} W`} tone="text-amber-400" />
-            <HeaderStat label="Idle power" value={`${fmtW(power.scenarios.idle.inputPowerW)} W`} tone="text-emerald-400" />
-            <HeaderStat label="Peak current" value={fmtA(power.scenarios.peak.inputPeakA)} tone="text-amber-400" />
-            <HeaderStat
-              label="Regulator Tj"
-              value={regulator.valid ? `${fmtTemp(regulator.tj)} °C` : "—"}
-              tone={zone === "emerald" ? "text-emerald-400" : zone === "yellow" ? "text-yellow-300" : "text-red-400"}
-            />
+          <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-5">
+            <HeaderStat label="24V GLV Margin" value={`${protection.tvs.marginV.toFixed(1)} V`} tone={glvOk ? "text-emerald-400" : "text-red-400"} />
+            <HeaderStat label="Worst-Case Junction Temp" value={`${fmtTemp(worstTj)} °C`} tone={worstTj < 100 && !inrushTrips ? "text-emerald-400" : worstTj < 115 && !inrushTrips ? "text-yellow-300" : "text-red-400"} />
+            <HeaderStat label="LTE Droop Margin" value={droopMv < 0 ? "Fail" : `${droopMv.toFixed(0)} mV`} tone={droopMv >= 0 ? "text-cyan-300" : "text-red-400"} />
+            <HeaderStat label="CAN Timing Error" value={can.timing.solvable ? `${can.timing.ppm.toFixed(0)} ppm` : "—"} tone={canOk ? "text-emerald-400" : "text-red-400"} />
+            <HeaderStat label="Middlebrook Stability" value={protection.peakRatio.toFixed(3)} tone={protection.stable ? "text-emerald-400" : "text-red-400"} />
           </div>
-          <p className="mt-3 text-[11px] text-slate-500">
-            CAN {can.rows.find((row) => row.selected)?.limit.label ?? ""} · {can.timing.solvable ? `${(can.timing.samplePoint * 100).toFixed(1)}% sample` : "timing unsolved"} · fuse {power.fuse.ratingA} A
-          </p>
+          <p className="mt-3 text-[11px] text-slate-500">{project.name}</p>
         </header>
         <div className="px-4 py-4 sm:px-6">
           {tool === "power" ? <PowerStudio /> : null}
