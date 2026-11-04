@@ -2,13 +2,14 @@
 
 import { createContext, useContext, useMemo, useState } from "react";
 import { analyzeCan, type CanResult } from "@/lib/engineering/can";
+import { analyzePcb, type PcbResult } from "@/lib/engineering/pcb";
 import { analyzeCapacitance, type CapacitanceResult } from "@/lib/engineering/capacitance";
 import { analyzeHarness, type HarnessResult } from "@/lib/engineering/harness";
 import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering/power";
 import { analyzeProtection, type ProtectionResult } from "@/lib/engineering/protection";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
 import { createProject } from "@/lib/preset";
-import type { CanInput, CapacitanceInput, HarnessChannel, HarnessInput, Load, MagneticsInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
+import type { CanInput, CapacitanceInput, HarnessChannel, HarnessInput, Load, MagneticsInput, PcbInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
 
 interface WorkbenchValue {
   project: Project;
@@ -19,6 +20,7 @@ interface WorkbenchValue {
   can: CanResult;
   protection: ProtectionResult;
   harness: HarnessResult;
+  pcb: PcbResult;
   reset: () => void;
   setTraceRise: (value: number) => void;
   updateRail: (id: string, patch: Partial<Rail>) => void;
@@ -32,6 +34,7 @@ interface WorkbenchValue {
   setProtection: (patch: Partial<ProtectionInput>) => void;
   setHarness: (patch: Partial<HarnessInput>) => void;
   updateHarnessChannel: (id: string, patch: Partial<HarnessChannel>) => void;
+  setPcb: (patch: Partial<PcbInput>) => void;
   setCapacitance: (patch: Partial<CapacitanceInput>) => void;
   setCan: (patch: Partial<CanInput>) => void;
 }
@@ -56,6 +59,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
   const can = useMemo(() => analyzeCan(project.can), [project.can]);
   const protection = useMemo(() => analyzeProtection(project.protection), [project.protection]);
   const harness = useMemo(() => analyzeHarness(project.harness), [project.harness]);
+  const pcb = useMemo(() => analyzePcb(project.pcb), [project.pcb]);
 
   const value: WorkbenchValue = {
     project,
@@ -66,6 +70,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     can,
     protection,
     harness,
+    pcb,
     reset: () => {
       setProject(createProject());
       setDirty(false);
@@ -146,6 +151,7 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
           channels: current.harness.channels.map((channel) => (channel.id === id ? { ...channel, ...patch, id: channel.id } : channel))
         }
       })),
+    setPcb: (patch) => edit((current) => ({ ...current, pcb: { ...current.pcb, ...patch } })),
     setCapacitance: (patch) => edit((current) => ({ ...current, capacitance: { ...current.capacitance, ...patch } })),
     setCan: (patch) => edit((current) => ({ ...current, can: { ...current.can, ...patch } }))
   };

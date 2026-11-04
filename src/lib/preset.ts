@@ -199,6 +199,18 @@ export const PRESET: Project = {
       }
     ]
   },
+  pcb: {
+    currentA: 1.57,
+    riseC: 10,
+    oz: 1,
+    viaDrillMm: 0.3,
+    iPeak: 3,
+    stackupId: "JLC04161H-7628",
+    grid: 4,
+    thermalPackage: "QFN",
+    rPlane: 20,
+    platingUm: 35
+  },
   capacitance: {
     vNom: 3.8,
     dropMv: 200,

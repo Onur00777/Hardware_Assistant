@@ -170,6 +170,27 @@ export interface HarnessInput {
   channels: HarnessChannel[];
 }
 
+export type StackupId = "JLC04161H-7628" | "JLC04161H-3313";
+export type ThermalPackageId = "QFN" | "DPAK" | "SOT-223";
+
+export interface PcbInput {
+  currentA: number;
+  riseC: number;
+  /** Copper weight in ounces. */
+  oz: 0.5 | 1 | 2;
+  viaDrillMm: number;
+  /** Current the via field must carry at a 0.5 °C barrel rise. */
+  iPeak: number;
+  stackupId: StackupId;
+  /** Thermal via grid, N of an N×N array. */
+  grid: 3 | 4 | 5;
+  thermalPackage: ThermalPackageId;
+  /** Plane-to-ambient thermal resistance, °C/W. */
+  rPlane: number;
+  /** Via wall plating, micrometres. 35 is 1 oz. */
+  platingUm: number;
+}
+
 export interface CanInput {
   baud: CanBaud;
   termination: Termination;
@@ -195,6 +216,7 @@ export interface Project {
   magnetics: MagneticsInput;
   protection: ProtectionInput;
   harness: HarnessInput;
+  pcb: PcbInput;
   capacitance: CapacitanceInput;
   can: CanInput;
 }

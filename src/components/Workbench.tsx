@@ -1,10 +1,11 @@
 "use client";
 
-import { Cable, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
+import { Cable, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
 import { useState } from "react";
 import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
 import { HarnessStudio } from "@/components/HarnessStudio";
+import { PcbStudio } from "@/components/PcbStudio";
 import { PowerStudio } from "@/components/PowerStudio";
 import { ProtectionStudio } from "@/components/ProtectionStudio";
 import { RegulatorStudio } from "@/components/RegulatorStudio";
@@ -12,7 +13,7 @@ import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
 import { fmtA, fmtTemp, fmtW } from "@/lib/format";
 
-type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness";
+type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb";
 
 const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] = [
   { id: "power", label: "Power tree", detail: "Budget", icon: Zap },
@@ -20,6 +21,7 @@ const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] =
   { id: "bulk", label: "Bulk cap", detail: "Transient", icon: Waves },
   { id: "protect", label: "Protection", detail: "ISO 7637", icon: Shield },
   { id: "harness", label: "Harness", detail: "I²t", icon: Unplug },
+  { id: "pcb", label: "PCB", detail: "Impedance", icon: Layers },
   { id: "can", label: "CAN bus", detail: "Physical", icon: Cable }
 ];
 
@@ -47,7 +49,7 @@ function Shell() {
           {TOOLS.map((item) => {
             const Icon = item.icon;
             const active = tool === item.id;
-            const accent = item.id === "bulk" || item.id === "can" || item.id === "protect" || item.id === "harness";
+            const accent = item.id === "bulk" || item.id === "can" || item.id === "protect" || item.id === "harness" || item.id === "pcb";
             return (
               <button
                 key={item.id}
@@ -110,6 +112,7 @@ function Shell() {
           {tool === "bulk" ? <CapStudio /> : null}
           {tool === "protect" ? <ProtectionStudio /> : null}
           {tool === "harness" ? <HarnessStudio /> : null}
+          {tool === "pcb" ? <PcbStudio /> : null}
           {tool === "can" ? <CanStudio /> : null}
         </div>
       </main>
