@@ -1,6 +1,7 @@
 import { formatEditable } from "../format";
 import { createProject, PRESET } from "../preset";
 import { ldoDissipation, partById } from "../components-db";
+import { altiumDelphiScript, altiumJavaScript } from "../altium-script";
 import { altiumRulesCsv, bomCsv, ltspiceCir } from "../exporters";
 import { E96, analyzeDivider, cFiltMinF, chargeDroopLsb, nearestInSeries, ntcResistance, steinhartTemperatureC, betaToSteinhart } from "./analog";
 import { analyzeCan } from "./can";
@@ -223,6 +224,16 @@ check(["PWR_24V", "PWR_5V", "PWR_3V8_LTE", "PWR_3V3", "USB_90R", "CAN_120R"].eve
 check(ruleLines.slice(1).every((line) => line.split(",").length === 5), "every Altium rule row has five columns");
 const bom = bomCsv(PRESET);
 check(bom.includes("LMR36520") && bom.includes("LM74700-Q1") && bom.includes("VNQ7050AJ"), "BOM carries the power-stage part numbers");
+const pascal = altiumDelphiScript(PRESET);
+check(pascal.includes("Procedure HWPS_ImportRules"), "DelphiScript exposes HWPS_ImportRules");
+check(
+  pascal.includes("eRule_MaxMinWidth") && pascal.includes("eRule_DiffPairsRouting") && pascal.includes("eRule_ComponentClearance"),
+  "DelphiScript creates width, differential-pair, and component keep-out rules"
+);
+check(pascal.includes("CAN_120R") && pascal.includes("USB_90R") && pascal.includes("PWR_24V"), "DelphiScript names the power class and both pairs");
+const javascript = altiumJavaScript(PRESET);
+check(javascript.includes("function HWPS_ImportRules"), "JavaScript exposes HWPS_ImportRules");
+check(javascript.includes("PCBRuleFactory") && javascript.includes("eRule_Clearance"), "JavaScript writes the PCB rule factory calls");
 
 const active = power.scenarios.active.inputPowerW;
 const idle = power.scenarios.idle.inputPowerW;

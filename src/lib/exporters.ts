@@ -4,21 +4,17 @@
  * Altium rules are CSV. The design review is Markdown plus a print-ready HTML page.
  */
 
+import { altiumDesignRules, formatAltiumRulesCsv } from "./altium-script";
 import { analyzeAnalog } from "./engineering/analog";
 import { analyzeCan } from "./engineering/can";
 import { analyzeCapacitance } from "./engineering/capacitance";
 import { analyzeHarness } from "./engineering/harness";
 import { analyzeInductor, analyzeMlcc } from "./engineering/magnetics";
-import { analyzePcb, widthMmForRise } from "./engineering/pcb";
+import { analyzePcb } from "./engineering/pcb";
 import { analyzePower } from "./engineering/power";
 import { analyzeProtection } from "./engineering/protection";
 import { analyzeRegulator } from "./engineering/regulator";
 import type { Project } from "./types";
-
-function railCurrent(project: Project, id: string): number {
-  const power = analyzePower(project.rails, project.loads, project.traceRiseC);
-  return power.rails.find((rail) => rail.id === id)?.out.mission.iRmsA ?? 0;
-}
 
 export function ltspiceCir(project: Project): string {
   const filter = project.protection;
@@ -99,46 +95,63 @@ function csvEscape(value: string | number): string {
 }
 
 export function altiumRulesCsv(project: Project): string {
-  const pcb = project.pcb;
-  const rows: Array<[string, string, string, string, string]> = [];
-  const nets: Array<[string, number]> = [
-    ["PWR_24V", Math.max(railCurrent(project, "glv"), 1)],
-    ["PWR_5V", Math.max(railCurrent(project, "rail5"), 0.2)],
-    ["PWR_3V8_LTE", Math.max(railCurrent(project, "rail3v8"), 0.5)],
-    ["PWR_3V3", Math.max(railCurrent(project, "rail3v3"), 0.2)]
+  return formatAltiumRulesCsv(altiumDesignRules(project));
+}
+
+export interface BomRow {
+  manufacturer: string;
+  mpn: string;
+  qty: string;
+  value: string;
+  description: string;
+}
+
+export function bomRows(project: Project): BomRow[] {
+  const cap = analyzeCapacitance(project.capacitance);
+  const bulk = cap.recommended;
+  return [
+    { manufacturer: "Texas Instruments", mpn: "LMR36520", qty: "1", value: "65 V 2 A", description: "3.8 V and 5 V synchronous bucks, confirm the orderable frequency" },
+    { manufacturer: "Texas Instruments", mpn: "LM74700-Q1", qty: "1", value: "ideal diode", description: "Reverse-polarity controller, external N-MOSFET" },
+    { manufacturer: "Vishay", mpn: project.protection.tvsId, qty: "1", value: project.protection.tvsId, description: "GLV TVS, 10/1000 us" },
+    { manufacturer: "STMicroelectronics", mpn: "VNQ7050AJ", qty: "1", value: "4x 50 mohm", description: "VCU high-side: fan, pump, brake, shutdown" },
+    { manufacturer: "Infineon", mpn: "BTS7008-2EPA", qty: "1", value: "2x 8.8 mohm", description: "Accumulator fan high-side" },
+    {
+      manufacturer: "Coilcraft",
+      mpn: project.magnetics.inductorId === "sized" ? "sized-in-tool" : project.magnetics.inductorId,
+      qty: "2",
+      value: `${project.magnetics.dcrMo} mohm DCR if sized`,
+      description: "Buck inductors"
+    },
+    {
+      manufacturer: bulk?.polymerName ? "Panasonic" : "Murata",
+      mpn: bulk?.description ?? "bulk",
+      qty: "1",
+      value: bulk ? `${(bulk.cEffectiveF * 1e6).toFixed(0)} uF eff` : "see cap tool",
+      description: "LTE bulk network"
+    },
+    {
+      manufacturer: "Murata",
+      mpn: `${project.magnetics.mlccCase} ${project.magnetics.cNomUf}uF ${project.magnetics.vRated}V`,
+      qty: String(project.magnetics.mlccCount),
+      value: project.magnetics.mlccDielectric,
+      description: "Buck output ceramics, apply the DC-bias derating"
+    }
   ];
-  for (const [net, current] of nets) {
-    const exact = widthMmForRise(current, pcb.riseC, "external", pcb.oz);
-    const hot = widthMmForRise(current, Math.max(pcb.riseC, 20), "external", pcb.oz);
-    const preferred = Math.max(0.2, exact);
-    const min = Math.max(0.2, Math.min(hot, preferred));
-    const max = Math.max(preferred * 2, preferred + 0.5);
-    rows.push(["Width", net, min.toFixed(3), preferred.toFixed(3), max.toFixed(3)]);
-  }
-  const solved = analyzePcb(pcb);
-  rows.push(["DiffPairWidth", "USB_90R", (solved.usb.wM * 1e3).toFixed(3), (solved.usb.wM * 1e3).toFixed(3), (solved.usb.wM * 1e3 + 0.05).toFixed(3)]);
-  rows.push(["DiffPairGap", "USB_90R", (solved.usb.sM * 1e3).toFixed(3), (solved.usb.sM * 1e3).toFixed(3), (solved.usb.sM * 1e3 + 0.05).toFixed(3)]);
-  rows.push(["DiffPairWidth", "CAN_120R", (solved.can.wM * 1e3).toFixed(3), (solved.can.wM * 1e3).toFixed(3), (solved.can.wM * 1e3 + 0.05).toFixed(3)]);
-  rows.push(["DiffPairGap", "CAN_120R", (solved.can.sM * 1e3).toFixed(3), (solved.can.sM * 1e3).toFixed(3), (solved.can.sM * 1e3 + 0.05).toFixed(3)]);
-  const header = "Rule,NetClass,Min_mm,Preferred_mm,Max_mm";
-  return [header, ...rows.map((row) => row.map(csvEscape).join(","))].join("\n") + "\n";
 }
 
 export function bomCsv(project: Project): string {
-  const cap = analyzeCapacitance(project.capacitance);
-  const bulk = cap.recommended;
   const header = "Manufacturer,MPN,Qty,Value,Description";
-  const rows = [
-    ["Texas Instruments", "LMR36520", "1", "65 V 2 A", "3.8 V and 5 V synchronous bucks, confirm the orderable frequency"],
-    ["Texas Instruments", "LM74700-Q1", "1", "ideal diode", "Reverse-polarity controller, external N-MOSFET"],
-    ["Vishay", project.protection.tvsId, "1", project.protection.tvsId, "GLV TVS, 10/1000 us"],
-    ["STMicroelectronics", "VNQ7050AJ", "1", "4x 50 mohm", "VCU high-side: fan, pump, brake, shutdown"],
-    ["Infineon", "BTS7008-2EPA", "1", "2x 8.8 mohm", "Accumulator fan high-side"],
-    ["Coilcraft", project.magnetics.inductorId === "sized" ? "sized-in-tool" : project.magnetics.inductorId, "2", `${project.magnetics.dcrMo} mohm DCR if sized`, "Buck inductors"],
-    [bulk?.polymerName ? "Panasonic" : "Murata", bulk?.description ?? "bulk", "1", bulk ? `${(bulk.cEffectiveF * 1e6).toFixed(0)} uF eff` : "see cap tool", "LTE bulk network"],
-    ["Murata", `${project.magnetics.mlccCase} ${project.magnetics.cNomUf}uF ${project.magnetics.vRated}V`, String(project.magnetics.mlccCount), project.magnetics.mlccDielectric, "Buck output ceramics, apply the DC-bias derating"]
-  ];
+  const rows = bomRows(project).map((row) => [row.manufacturer, row.mpn, row.qty, row.value, row.description]);
   return [header, ...rows.map((row) => row.map(csvEscape).join(","))].join("\n") + "\n";
+}
+
+export function bomDocument(project: Project) {
+  return {
+    project: project.name,
+    filename: "power-bom.csv",
+    csv: bomCsv(project),
+    rows: bomRows(project)
+  };
 }
 
 export function designReviewMarkdown(project: Project): string {
