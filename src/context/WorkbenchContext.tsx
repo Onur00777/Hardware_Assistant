@@ -10,6 +10,7 @@ import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering
 import { analyzeProtection, type ProtectionResult } from "@/lib/engineering/protection";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
 import { createBoard, type BoardPresetId } from "@/lib/preset";
+import type { StudioToolId } from "@/lib/studio-nav";
 import type { AnalogInput, CanInput, CapacitanceInput, HarnessChannel, HarnessInput, Load, MagneticsInput, PcbInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
 
 interface WorkbenchValue {
@@ -24,6 +25,8 @@ interface WorkbenchValue {
   pcb: PcbResult;
   analog: AnalogResult;
   presetId: BoardPresetId;
+  tool: StudioToolId;
+  openTool: (tool: StudioToolId) => void;
   loadPreset: (id: BoardPresetId) => void;
   reset: () => void;
   setTraceRise: (value: number) => void;
@@ -48,6 +51,7 @@ const WorkbenchContext = createContext<WorkbenchValue | null>(null);
 
 export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
   const [presetId, setPresetId] = useState<BoardPresetId>("vcu");
+  const [tool, setTool] = useState<StudioToolId>("power");
   const [project, setProject] = useState<Project>(() => createBoard("vcu"));
   const [dirty, setDirty] = useState(false);
 
@@ -72,6 +76,8 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     project,
     dirty,
     presetId,
+    tool,
+    openTool: setTool,
     power,
     regulator,
     capacitance,

@@ -1,45 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Plus, Trash2 } from "lucide-react";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useWorkbench } from "@/context/WorkbenchContext";
 import { modeIncluded, parentChoices, SCENARIOS, SCENARIO_META, type Scenario } from "@/lib/engineering/power";
 import { COPPER_1OZ_MILS } from "@/lib/engineering/ipc2152";
 import { fmtA, fmtMm, fmtW } from "@/lib/format";
 import type { LoadMode, RailKind } from "@/lib/types";
-import { Equation, Metric, NumberField, Panel, Segmented, TinyButton, Warnings, cn } from "@/components/ui";
+import { Equation, Metric, NumberField, Panel, Segmented, TinyButton, Warnings } from "@/components/ui";
 
-function CellNumber({
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  label
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  label: string;
-}) {
-  return (
-    <input
-      aria-label={label}
-      type="number"
-      value={Number.isFinite(value) ? value : 0}
-      min={min}
-      max={max}
-      step={step}
-      onChange={(event) => {
-        const next = Number(event.target.value);
-        if (Number.isFinite(next)) onChange(Math.min(max, Math.max(min, next)));
-      }}
-      className="w-full min-w-[4.5rem] rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-right font-mono text-xs tabular-nums outline-none focus:border-amber-400/40"
-    />
-  );
-}
+const PowerTreeCanvas = dynamic(() => import("@/components/PowerTreeCanvas").then((mod) => mod.PowerTreeCanvas), {
+  ssr: false,
+  loading: () => <div className="h-[680px] animate-pulse rounded-xl border border-white/10 bg-black/20" />
+});
 
 export function PowerStudio() {
   const {
@@ -51,15 +25,17 @@ export function PowerStudio() {
     addRail,
     addLoad,
     deleteRail,
-    deleteLoad
+    deleteLoad,
+    openTool,
+    protection,
+    regulator,
+    capacitance,
+    harness
   } = useWorkbench();
   const [scenario, setScenario] = useState<Scenario>("mission");
   const [railId, setRailId] = useState("glv");
   const [loadId, setLoadId] = useState("load-fan");
   const [railMessage, setRailMessage] = useState<string | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const nodeRefs = useRef(new Map<string, HTMLElement>());
-  const [wires, setWires] = useState<{ id: string; d: string }[]>([]);
 
   const selectedRail = power.rails.find((rail) => rail.id === railId) ?? power.rails[0];
   const selectedLoad = project.loads.find((load) => load.id === loadId) ?? project.loads[0];
@@ -69,46 +45,6 @@ export function PowerStudio() {
   const mission = power.scenarios.mission;
   const peak = power.scenarios.peak;
 
-  const measure = useCallback(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const origin = wrap.getBoundingClientRect();
-    const next: { id: string; d: string }[] = [];
-    for (const rail of power.rails) {
-      if (!rail.parentId) continue;
-      const from = nodeRefs.current.get(rail.parentId);
-      const to = nodeRefs.current.get(rail.id);
-      if (!from || !to) continue;
-      const a = from.getBoundingClientRect();
-      const b = to.getBoundingClientRect();
-      const x1 = a.right - origin.left;
-      const y1 = a.top + a.height / 2 - origin.top;
-      const x2 = b.left - origin.left;
-      const y2 = b.top + b.height / 2 - origin.top;
-      const mid = (x1 + x2) / 2;
-      next.push({
-        id: rail.id,
-        d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${mid.toFixed(1)} ${y1.toFixed(1)}, ${mid.toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`
-      });
-    }
-    setWires((current) => {
-      const same =
-        current.length === next.length && current.every((wire, index) => wire.id === next[index]?.id && wire.d === next[index]?.d);
-      return same ? current : next;
-    });
-  }, [power.rails]);
-
-  useLayoutEffect(() => {
-    measure();
-    const wrap = wrapRef.current;
-    if (!wrap || typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(() => measure());
-    observer.observe(wrap);
-    return () => observer.disconnect();
-  }, [measure, scenario]);
-
-  const depthCount = power.rails.reduce((max, rail) => Math.max(max, rail.depth), 0);
-  const columns = Array.from({ length: depthCount + 1 }, (_, depth) => power.rails.filter((rail) => rail.depth === depth));
   const largest = project.loads
     .filter((load) => modeIncluded(load.mode, "active"))
     .map((load) => {
@@ -121,415 +57,287 @@ export function PowerStudio() {
   const parent = selectedRail ? power.rails.find((rail) => rail.id === selectedRail.parentId) : undefined;
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-12">
-      <div className="order-2 space-y-4 xl:order-1 xl:col-span-7">
-        <Panel
-          eyebrow="Power tree"
-          title="Rails"
-          action={
-            <TinyButton onClick={addRail} disabled={project.rails.length >= 12} tone="amber">
-              <span className="inline-flex items-center gap-1">
-                <Plus size={14} /> Add rail
-              </span>
-            </TinyButton>
-          }
-        >
-          <div className="overflow-x-auto pb-2">
-            <div ref={wrapRef} className="relative min-w-[760px]">
-              <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
-                {wires.map((wire) => (
-                  <path key={wire.id} d={wire.d} fill="none" stroke="#f59e0b" strokeWidth="1.4" className="wire" />
-                ))}
-              </svg>
-              <div className="relative z-10 flex items-stretch gap-14">
-                {columns.map((column, index) => (
-                  <div key={index} className="flex flex-1 flex-col justify-center gap-3">
-                    {column.map((rail) => {
-                      const stats = rail.out[scenario];
-                      const loads = project.loads.filter((load) => load.railId === rail.id);
-                      const activeCard = selectedRail?.id === rail.id;
-                      return (
-                        <button
-                          key={rail.id}
-                          type="button"
-                          ref={(node) => {
-                            if (node) nodeRefs.current.set(rail.id, node);
-                            else nodeRefs.current.delete(rail.id);
-                          }}
-                          onClick={() => setRailId(rail.id)}
-                          className={cn(
-                            "rounded-xl border bg-[#0c1118] p-3 text-left shadow-none",
-                            rail.problems.length > 0 ? "border-red-400/50" : activeCard ? "border-amber-400/60" : "border-white/[0.08]"
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-amber-400/90">
-                              {rail.kind === "source" ? "Source" : rail.kind === "buck" ? `Buck · ${rail.efficiencyPct}%` : "LDO"}
-                            </span>
-                            <span className="font-mono text-[10px] text-slate-500">{fmtA(rail.drawn[scenario].iAvgA)} in</span>
-                          </div>
-                          <div className="mt-1 truncate text-sm text-slate-100">{rail.name}</div>
-                          <div className="mt-1 font-mono text-2xl tabular-nums text-amber-400">{rail.voltage.toFixed(2)} V</div>
-                          <dl className="mt-2 grid grid-cols-3 gap-2 font-mono text-[11px]">
-                            <div>
-                              <dt className="text-slate-500">Avg</dt>
-                              <dd className="text-slate-200">{fmtA(stats.iAvgA)}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-slate-500">RMS</dt>
-                              <dd className="text-slate-200">{fmtA(stats.iRmsA)}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-slate-500">Peak</dt>
-                              <dd className="text-slate-200">{fmtA(stats.iPeakA)}</dd>
-                            </div>
-                          </dl>
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {loads.map((load) => (
-                              <span
-                                key={load.id}
-                                className={cn(
-                                  "max-w-full truncate rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px]",
-                                  modeIncluded(load.mode, scenario) ? "text-slate-300" : "text-slate-600"
-                                )}
-                              >
-                                {load.name}
-                              </span>
-                            ))}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <p className="mt-3 text-[11px] text-slate-500">
-            Currents on the cards follow {SCENARIO_META[scenario].label.toLowerCase()}. Dimmed loads are off in this case. Trace width stays on mission RMS.
-          </p>
-        </Panel>
+    <div className="space-y-4">
+      <Panel
+        eyebrow="Power tree"
+        title="Topology"
+        action={
+          <TinyButton onClick={addRail} disabled={project.rails.length >= 12} tone="amber">
+            <span className="inline-flex items-center gap-1">
+              <Plus size={14} /> Add rail
+            </span>
+          </TinyButton>
+        }
+      >
+        <PowerTreeCanvas
+          project={project}
+          power={power}
+          protection={protection}
+          regulator={regulator}
+          capacitance={capacitance}
+          harness={harness}
+          scenario={scenario}
+          onOpen={openTool}
+        />
+        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+          The canvas is the board power architecture: 24 V feed, reverse-polarity and TVS guard, bucks, LDOs, then loads. Each node shows voltage, RMS current for {SCENARIO_META[scenario].label.toLowerCase()}, efficiency, and thermal status. Green is inside limits. Pulsing red is thermal shutdown, bulk voltage below brownout, or a TVS that cannot stand off or clamp inside the downstream absolute maximum. Click a node to open that calculator.
+        </p>
+      </Panel>
 
-        {selectedRail ? (
-          <Panel eyebrow="Selected rail" title={selectedRail.name}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <NumberField
-                label="Rail voltage"
-                unit="V"
-                value={selectedRail.voltage}
-                min={0.5}
-                max={60}
-                step={0.01}
-                onChange={(voltage) => updateRail(selectedRail.id, { voltage })}
-              />
-              {selectedRail.kind === "buck" ? (
-                <NumberField
-                  label="Efficiency, excluding Iq"
-                  unit="%"
-                  value={selectedRail.efficiencyPct}
-                  min={50}
-                  max={99}
-                  step={0.1}
-                  onChange={(efficiencyPct) => updateRail(selectedRail.id, { efficiencyPct })}
-                />
-              ) : selectedRail.kind === "ldo" ? (
-                <NumberField
-                  label="Quiescent current from parent"
-                  unit="mA"
-                  value={selectedRail.iqMa}
-                  min={0}
-                  max={20}
-                  step={0.01}
-                  onChange={(iqMa) => updateRail(selectedRail.id, { iqMa })}
-                />
-              ) : (
-                <div className="flex gap-2 self-end">
-                  <TinyButton tone="amber" onClick={() => updateRail(selectedRail.id, { voltage: 12 })}>
-                    12 V
-                  </TinyButton>
-                  <TinyButton tone="amber" onClick={() => updateRail(selectedRail.id, { voltage: 24 })}>
-                    24 V
-                  </TinyButton>
-                </div>
-              )}
-              {selectedRail.kind === "buck" ? (
-                <NumberField
-                  label="Quiescent current from parent"
-                  unit="mA"
-                  value={selectedRail.iqMa}
-                  min={0}
-                  max={20}
-                  step={0.01}
-                  onChange={(iqMa) => updateRail(selectedRail.id, { iqMa })}
-                />
-              ) : null}
-            </div>
-            <Equation
-              lines={
-                selectedRail.kind === "source"
-                  ? [
-                      `Case: ${SCENARIO_META[scenario].label} — ${SCENARIO_META[scenario].detail}`,
-                      `I_avg = ${selectedRail.out[scenario].iAvgA.toFixed(4)} A`,
-                      `I_rms = √(I_avg² + Σ I²·D·(1−D)) = ${selectedRail.out[scenario].iRmsA.toFixed(4)} A`,
-                      `I_peak = Σ I = ${selectedRail.out[scenario].iPeakA.toFixed(4)} A`,
-                      `P = V·I_avg = ${selectedRail.voltage.toFixed(2)} · ${selectedRail.out[scenario].iAvgA.toFixed(4)} = ${selectedRail.pOutW[scenario].toFixed(4)} W`
-                    ]
-                  : selectedRail.kind === "ldo"
-                    ? [
-                        `I_out,avg = ${selectedRail.out[scenario].iAvgA.toFixed(4)} A    I_q = ${(selectedRail.iqMa / 1000).toFixed(6)} A`,
-                        `I_in = I_out + I_q = ${selectedRail.drawn[scenario].iAvgA.toFixed(4)} A avg, ${selectedRail.drawn[scenario].iRmsA.toFixed(4)} A rms`,
-                        `P_out = ${selectedRail.voltage.toFixed(2)} · ${selectedRail.out[scenario].iAvgA.toFixed(4)} = ${selectedRail.pOutW[scenario].toFixed(4)} W`,
-                        `P_in = ${parent ? parent.voltage.toFixed(2) : "Vin"} · I_in = ${selectedRail.pInW[scenario].toFixed(4)} W`,
-                        `P_loss = P_in − P_out = ${selectedRail.lossW[scenario].toFixed(4)} W`
-                      ]
-                    : [
-                        `η = ${(Math.min(99, Math.max(50, selectedRail.efficiencyPct)) / 100).toFixed(4)}    k = Vout/(Vin·η) = ${selectedRail.referralK.toFixed(4)}`,
-                        `I_in,avg = k·I_out,avg + I_q = ${selectedRail.drawn[scenario].iAvgA.toFixed(4)} A`,
-                        `I_in,rms = √((k·I_out,rms)² + I_q² + 2·I_q·k·I_out,avg) = ${selectedRail.drawn[scenario].iRmsA.toFixed(4)} A`,
-                        `P_out = ${selectedRail.pOutW[scenario].toFixed(4)} W`,
-                        `P_in = P_out/η + Vin·I_q = ${selectedRail.pInW[scenario].toFixed(4)} W`,
-                        `P_loss = ${selectedRail.lossW[scenario].toFixed(4)} W`
-                      ]
-              }
-            />
-          </Panel>
-        ) : null}
-
-        <Panel eyebrow="Registry" title="Loads">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-separate border-spacing-y-1 text-left">
-              <thead className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                <tr>
-                  <th className="px-2 py-1 font-normal">Name</th>
-                  <th className="px-2 py-1 font-normal">Rail</th>
-                  <th className="px-2 py-1 font-normal">Mode</th>
-                  <th className="px-2 py-1 font-normal">mA</th>
-                  <th className="px-2 py-1 font-normal">Duty %</th>
-                  <th className="px-2 py-1 font-normal" />
-                </tr>
-              </thead>
-              <tbody>
-                {project.loads.map((load) => {
-                  const activeRow = selectedLoad?.id === load.id;
-                  return (
-                    <tr
-                      key={load.id}
-                      onClick={() => setLoadId(load.id)}
-                      className={cn("cursor-pointer", activeRow ? "bg-amber-500/[0.06]" : "hover:bg-white/[0.03]")}
-                    >
-                      <td className="rounded-l px-2 py-1">
-                        <input
-                          aria-label={`${load.name} name`}
-                          value={load.name}
-                          onChange={(event) => updateLoad(load.id, { name: event.target.value })}
-                          className="w-full min-w-[10rem] rounded border border-transparent bg-transparent px-1 py-1 text-sm outline-none focus:border-white/15"
-                        />
-                      </td>
-                      <td className="px-2 py-1">
-                        <select
-                          aria-label={`${load.name} rail`}
-                          value={load.railId}
-                          onChange={(event) => updateLoad(load.id, { railId: event.target.value })}
-                          className="w-full rounded border border-white/[0.08] bg-black/30 px-1 py-1 text-xs"
-                        >
-                          {project.rails.map((rail) => (
-                            <option key={rail.id} value={rail.id}>
-                              {rail.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-2 py-1">
-                        <select
-                          aria-label={`${load.name} mode`}
-                          value={load.mode}
-                          onChange={(event) => updateLoad(load.id, { mode: event.target.value as LoadMode })}
-                          className="rounded border border-white/[0.08] bg-black/30 px-1 py-1 text-xs"
-                        >
-                          <option value="idle">Idle</option>
-                          <option value="active">Active</option>
-                          <option value="burst">Burst</option>
-                        </select>
-                      </td>
-                      <td className="px-2 py-1">
-                        <CellNumber
-                          label={`${load.name} current`}
-                          value={load.currentMa}
-                          min={0}
-                          max={20000}
-                          step={0.01}
-                          onChange={(currentMa) => updateLoad(load.id, { currentMa })}
-                        />
-                      </td>
-                      <td className="px-2 py-1">
-                        <CellNumber
-                          label={`${load.name} duty`}
-                          value={load.dutyPct}
-                          min={0}
-                          max={100}
-                          step={0.1}
-                          onChange={(dutyPct) => updateLoad(load.id, { dutyPct })}
-                        />
-                      </td>
-                      <td className="rounded-r px-2 py-1">
-                        <button
-                          type="button"
-                          aria-label={`Delete ${load.name}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            deleteLoad(load.id);
-                          }}
-                          className="rounded p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-300"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-3">
-            <TinyButton
-              tone="amber"
-              disabled={project.loads.length >= 40}
-              onClick={() => {
-                const id = addLoad();
-                if (id) setLoadId(id);
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Plus size={14} /> Add load
-              </span>
-            </TinyButton>
-          </div>
-          {selectedLoad ? (
-            <div className="mt-4 grid gap-4 border-t border-white/[0.06] pt-4 sm:grid-cols-2">
-              <NumberField
-                label={`${selectedLoad.name} current`}
-                unit="mA"
-                value={selectedLoad.currentMa}
-                min={0}
-                max={8000}
-                step={0.01}
-                onChange={(currentMa) => updateLoad(selectedLoad.id, { currentMa })}
-              />
-              <NumberField
-                label={`${selectedLoad.name} duty`}
-                unit="%"
-                value={selectedLoad.dutyPct}
-                min={0}
-                max={100}
-                step={0.1}
-                hint="Fraction of time this row draws its stated current."
-                onChange={(dutyPct) => updateLoad(selectedLoad.id, { dutyPct })}
-              />
-            </div>
-          ) : null}
-        </Panel>
-
-        <Panel eyebrow="Converters" title="Rail table">
-          {railMessage ? <p className="mb-3 text-xs text-amber-200">{railMessage}</p> : null}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-xs">
-              <thead className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                <tr>
-                  <th className="py-1 pr-2 font-normal">Rail</th>
-                  <th className="py-1 pr-2 font-normal">Kind</th>
-                  <th className="py-1 pr-2 font-normal">Parent</th>
-                  <th className="py-1 pr-2 font-normal">V</th>
-                  <th className="py-1 pr-2 font-normal">η %</th>
-                  <th className="py-1 pr-2 font-normal">Iq mA</th>
-                  <th className="py-1 font-normal" />
-                </tr>
-              </thead>
-              <tbody>
+      <div className="grid items-start gap-4 xl:grid-cols-12">
+        <div className="order-2 space-y-4 xl:order-1 xl:col-span-7">
+          {selectedRail ? (
+            <Panel eyebrow="Selected rail" title={selectedRail.name}>
+              <label className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500" htmlFor="rail-pick">
+                Rail
+              </label>
+              <select
+                id="rail-pick"
+                value={selectedRail.id}
+                onChange={(event) => setRailId(event.target.value)}
+                className="mt-1 w-full rounded-md border border-white/[0.08] bg-black/40 px-2 py-2 text-sm"
+              >
                 {project.rails.map((rail) => (
-                  <tr key={rail.id} className="border-t border-white/[0.04]">
-                    <td className="py-1.5 pr-2">
-                      <input
-                        aria-label={`${rail.name} name`}
-                        value={rail.name}
-                        onChange={(event) => updateRail(rail.id, { name: event.target.value })}
-                        className="w-full min-w-[8rem] rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-xs"
-                      />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <select
-                        aria-label={`${rail.name} kind`}
-                        disabled={rail.kind === "source"}
-                        value={rail.kind}
-                        onChange={(event) => updateRail(rail.id, { kind: event.target.value as RailKind })}
-                        className="rounded border border-white/[0.08] bg-black/30 px-1 py-1 disabled:opacity-60"
-                      >
-                        {rail.kind === "source" ? <option value="source">source</option> : null}
-                        <option value="buck">buck</option>
-                        <option value="ldo">ldo</option>
-                      </select>
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <select
-                        aria-label={`${rail.name} parent`}
-                        disabled={rail.kind === "source"}
-                        value={rail.parentId ?? ""}
-                        onChange={(event) => updateRail(rail.id, { parentId: event.target.value })}
-                        className="max-w-[10rem] rounded border border-white/[0.08] bg-black/30 px-1 py-1 disabled:opacity-60"
-                      >
-                        {rail.kind === "source" ? <option value="">—</option> : null}
-                        {parentChoices(project.rails, rail.id).map((choice) => (
-                          <option key={choice.id} value={choice.id}>
-                            {choice.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <CellNumber label={`${rail.name} voltage`} value={rail.voltage} min={0.5} max={60} step={0.01} onChange={(voltage) => updateRail(rail.id, { voltage })} />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      {rail.kind === "buck" ? (
-                        <CellNumber
-                          label={`${rail.name} efficiency`}
-                          value={rail.efficiencyPct}
-                          min={50}
-                          max={99}
-                          step={0.1}
-                          onChange={(efficiencyPct) => updateRail(rail.id, { efficiencyPct })}
-                        />
-                      ) : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      {rail.kind === "source" ? (
-                        <span className="text-slate-600">—</span>
-                      ) : (
-                        <CellNumber label={`${rail.name} Iq`} value={rail.iqMa} min={0} max={20} step={0.01} onChange={(iqMa) => updateRail(rail.id, { iqMa })} />
-                      )}
-                    </td>
-                    <td className="py-1.5">
-                      <button
-                        type="button"
-                        aria-label={`Delete ${rail.name}`}
-                        disabled={rail.kind === "source" || project.rails.some((item) => item.parentId === rail.id)}
-                        onClick={() => {
-                          const removed = deleteRail(rail.id);
-                          setRailMessage(removed ? null : "Move child rails off this node before deleting it.");
-                        }}
-                        className="rounded p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-30"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
+                  <option key={rail.id} value={rail.id}>
+                    {rail.name}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-      </div>
+              </select>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="block text-xs text-slate-400">
+                  Name
+                  <input
+                    aria-label={`${selectedRail.name} name`}
+                    value={selectedRail.name}
+                    onChange={(event) => updateRail(selectedRail.id, { name: event.target.value })}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Kind
+                  <select
+                    aria-label={`${selectedRail.name} kind`}
+                    disabled={selectedRail.kind === "source"}
+                    value={selectedRail.kind}
+                    onChange={(event) => updateRail(selectedRail.id, { kind: event.target.value as RailKind })}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm disabled:opacity-60"
+                  >
+                    {selectedRail.kind === "source" ? <option value="source">source</option> : null}
+                    <option value="buck">buck</option>
+                    <option value="ldo">ldo</option>
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Parent
+                  <select
+                    aria-label={`${selectedRail.name} parent`}
+                    disabled={selectedRail.kind === "source"}
+                    value={selectedRail.parentId ?? ""}
+                    onChange={(event) => updateRail(selectedRail.id, { parentId: event.target.value })}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm disabled:opacity-60"
+                  >
+                    {selectedRail.kind === "source" ? <option value="">—</option> : null}
+                    {parentChoices(project.rails, selectedRail.id).map((choice) => (
+                      <option key={choice.id} value={choice.id}>
+                        {choice.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <NumberField
+                  label="Rail voltage"
+                  unit="V"
+                  value={selectedRail.voltage}
+                  min={0.5}
+                  max={60}
+                  step={0.01}
+                  onChange={(voltage) => updateRail(selectedRail.id, { voltage })}
+                />
+                {selectedRail.kind === "buck" ? (
+                  <NumberField
+                    label="Efficiency, excluding Iq"
+                    unit="%"
+                    value={selectedRail.efficiencyPct}
+                    min={50}
+                    max={99}
+                    step={0.1}
+                    onChange={(efficiencyPct) => updateRail(selectedRail.id, { efficiencyPct })}
+                  />
+                ) : null}
+                {selectedRail.kind === "source" ? (
+                  <div className="flex gap-2 self-end">
+                    <TinyButton tone="amber" onClick={() => updateRail(selectedRail.id, { voltage: 12 })}>
+                      12 V
+                    </TinyButton>
+                    <TinyButton tone="amber" onClick={() => updateRail(selectedRail.id, { voltage: 24 })}>
+                      24 V
+                    </TinyButton>
+                  </div>
+                ) : (
+                  <NumberField
+                    label="Quiescent current from parent"
+                    unit="mA"
+                    value={selectedRail.iqMa}
+                    min={0}
+                    max={20}
+                    step={0.01}
+                    onChange={(iqMa) => updateRail(selectedRail.id, { iqMa })}
+                  />
+                )}
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={selectedRail.kind === "source" || project.rails.some((item) => item.parentId === selectedRail.id)}
+                  onClick={() => {
+                    const removed = deleteRail(selectedRail.id);
+                    setRailMessage(removed ? null : "Move child rails off this node before deleting it.");
+                    if (removed) setRailId(project.rails.find((rail) => rail.kind === "source")?.id ?? "");
+                  }}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-400 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-30"
+                >
+                  <Trash2 size={14} /> Delete rail
+                </button>
+                {railMessage ? <p className="text-xs text-amber-200">{railMessage}</p> : null}
+              </div>
+              <Equation
+                lines={
+                  selectedRail.kind === "source"
+                    ? [
+                        `Case: ${SCENARIO_META[scenario].label} — ${SCENARIO_META[scenario].detail}`,
+                        `I_avg = ${selectedRail.out[scenario].iAvgA.toFixed(4)} A`,
+                        `I_rms = √(I_avg² + Σ I²·D·(1−D)) = ${selectedRail.out[scenario].iRmsA.toFixed(4)} A`,
+                        `I_peak = Σ I = ${selectedRail.out[scenario].iPeakA.toFixed(4)} A`,
+                        `P = V·I_avg = ${selectedRail.voltage.toFixed(2)} · ${selectedRail.out[scenario].iAvgA.toFixed(4)} = ${selectedRail.pOutW[scenario].toFixed(4)} W`
+                      ]
+                    : selectedRail.kind === "ldo"
+                      ? [
+                          `I_out,avg = ${selectedRail.out[scenario].iAvgA.toFixed(4)} A    I_q = ${(selectedRail.iqMa / 1000).toFixed(6)} A`,
+                          `I_in = I_out + I_q = ${selectedRail.drawn[scenario].iAvgA.toFixed(4)} A avg, ${selectedRail.drawn[scenario].iRmsA.toFixed(4)} A rms`,
+                          `P_out = ${selectedRail.voltage.toFixed(2)} · ${selectedRail.out[scenario].iAvgA.toFixed(4)} = ${selectedRail.pOutW[scenario].toFixed(4)} W`,
+                          `P_in = ${parent ? parent.voltage.toFixed(2) : "Vin"} · I_in = ${selectedRail.pInW[scenario].toFixed(4)} W`,
+                          `P_loss = P_in − P_out = ${selectedRail.lossW[scenario].toFixed(4)} W`
+                        ]
+                      : [
+                          `η = ${(Math.min(99, Math.max(50, selectedRail.efficiencyPct)) / 100).toFixed(4)}    k = Vout/(Vin·η) = ${selectedRail.referralK.toFixed(4)}`,
+                          `I_in,avg = k·I_out,avg + I_q = ${selectedRail.drawn[scenario].iAvgA.toFixed(4)} A`,
+                          `I_in,rms = √((k·I_out,rms)² + I_q² + 2·I_q·k·I_out,avg) = ${selectedRail.drawn[scenario].iRmsA.toFixed(4)} A`,
+                          `P_out = ${selectedRail.pOutW[scenario].toFixed(4)} W`,
+                          `P_in = P_out/η + Vin·I_q = ${selectedRail.pInW[scenario].toFixed(4)} W`,
+                          `P_loss = ${selectedRail.lossW[scenario].toFixed(4)} W`
+                        ]
+                }
+              />
+            </Panel>
+          ) : null}
 
+          <Panel
+            eyebrow="Loads"
+            title="Attached loads"
+            action={
+              <TinyButton
+                tone="amber"
+                disabled={project.loads.length >= 40}
+                onClick={() => {
+                  const id = addLoad();
+                  if (id) setLoadId(id);
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Plus size={14} /> Add load
+                </span>
+              </TinyButton>
+            }
+          >
+            {selectedLoad ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-xs text-slate-400 sm:col-span-2">
+                  Load
+                  <select
+                    aria-label="Selected load"
+                    value={selectedLoad.id}
+                    onChange={(event) => setLoadId(event.target.value)}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm text-slate-100"
+                  >
+                    {project.loads.map((load) => (
+                      <option key={load.id} value={load.id}>
+                        {load.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400 sm:col-span-2">
+                  Name
+                  <input
+                    aria-label={`${selectedLoad.name} name`}
+                    value={selectedLoad.name}
+                    onChange={(event) => updateLoad(selectedLoad.id, { name: event.target.value })}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Rail
+                  <select
+                    aria-label={`${selectedLoad.name} rail`}
+                    value={selectedLoad.railId}
+                    onChange={(event) => updateLoad(selectedLoad.id, { railId: event.target.value })}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm"
+                  >
+                    {project.rails.map((rail) => (
+                      <option key={rail.id} value={rail.id}>
+                        {rail.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-slate-400">
+                  Mode
+                  <select
+                    aria-label={`${selectedLoad.name} mode`}
+                    value={selectedLoad.mode}
+                    onChange={(event) => updateLoad(selectedLoad.id, { mode: event.target.value as LoadMode })}
+                    className="mt-1 w-full rounded border border-white/[0.08] bg-black/30 px-2 py-1 text-sm"
+                  >
+                    <option value="idle">Idle</option>
+                    <option value="active">Active</option>
+                    <option value="burst">Burst</option>
+                  </select>
+                </label>
+                <NumberField
+                  label={`${selectedLoad.name} current`}
+                  unit="mA"
+                  value={selectedLoad.currentMa}
+                  min={0}
+                  max={20000}
+                  step={0.01}
+                  onChange={(currentMa) => updateLoad(selectedLoad.id, { currentMa })}
+                />
+                <NumberField
+                  label={`${selectedLoad.name} duty`}
+                  unit="%"
+                  value={selectedLoad.dutyPct}
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  hint="Fraction of time this row draws its stated current."
+                  onChange={(dutyPct) => updateLoad(selectedLoad.id, { dutyPct })}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteLoad(selectedLoad.id);
+                    setLoadId(project.loads.find((load) => load.id !== selectedLoad.id)?.id ?? "");
+                  }}
+                  className="inline-flex items-center gap-1 self-end rounded px-2 py-1 text-xs text-slate-400 hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <Trash2 size={14} /> Delete load
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">No loads on this board.</p>
+            )}
+          </Panel>
+        </div>
       <div className="order-1 space-y-4 xl:order-2 xl:col-span-5">
         <Panel eyebrow="Live budget" title="System summary">
           <Segmented
@@ -643,6 +451,7 @@ export function PowerStudio() {
           Idle, active, and burst rows are separate operating contributions. Active power ignores burst rows; mission power includes them at I·D. Peak turns active and burst fully on together. RMS treats pulses as uncorrelated, which is exact for one pulse and arithmetic for DC loads. An LDO reflects I_out + I_q. A buck reflects V_out·I_out/(V_in·η) + I_q with η held constant. Copper heating uses RMS because a 577 µs radio burst does not warm a trace; a fan that stays on for seconds does.
         </p>
       </div>
+    </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@
     "check:math": "tsx src/lib/engineering/self-check.ts"
   },
   "dependencies": {
+    "@xyflow/react": "^12.6.4",
     "lucide-react": "^0.511.0",
     "next": "^14.2.15",
     "react": "^18.3.1",

@@ -50,3 +50,46 @@ body {
     animation: none;
   }
 }
+
+.power-flow .react-flow__controls-button {
+  background: #0c1118;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  fill: #e7edf5;
+}
+
+.power-flow .react-flow__minimap {
+  background: #0c1118;
+}
+
+.power-flow .react-flow__attribution {
+  background: transparent;
+  color: #64748b;
+}
+
+.power-flow .react-flow__edge.power-edge-fault .react-flow__edge-path {
+  stroke: #f87171;
+}
+
+.power-flow .react-flow__edge.power-edge-ok .react-flow__edge-path {
+  stroke: #34d399;
+}
+
+@keyframes nodeFaultPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 18px 3px rgba(248, 113, 113, 0.55);
+  }
+}
+
+.power-node-fault {
+  animation: nodeFaultPulse 1.15s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .power-node-fault {
+    animation: none;
+  }
+}

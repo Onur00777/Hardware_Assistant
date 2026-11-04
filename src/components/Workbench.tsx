@@ -1,7 +1,6 @@
 "use client";
 
 import { Activity, Cable, FileDown, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
-import { useState } from "react";
 import { AnalogStudio } from "@/components/AnalogStudio";
 import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
@@ -15,24 +14,22 @@ import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
 import { fmtTemp } from "@/lib/format";
 import { BOARD_PRESETS, type BoardPresetId } from "@/lib/preset";
+import { STUDIO_TOOLS, type StudioToolId } from "@/lib/studio-nav";
 
-type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb" | "analog" | "export";
-
-const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] = [
-  { id: "power", label: "Power tree", detail: "Budget", icon: Zap },
-  { id: "thermal", label: "Regulator", detail: "Thermal", icon: Thermometer },
-  { id: "bulk", label: "Bulk cap", detail: "Transient", icon: Waves },
-  { id: "protect", label: "Protection", detail: "ISO 7637", icon: Shield },
-  { id: "harness", label: "Harness", detail: "I²t", icon: Unplug },
-  { id: "pcb", label: "PCB", detail: "Impedance", icon: Layers },
-  { id: "analog", label: "Analog", detail: "ADC / NTC", icon: Activity },
-  { id: "export", label: "Export", detail: "SPICE / BOM", icon: FileDown },
-  { id: "can", label: "CAN bus", detail: "Physical", icon: Cable }
-];
+const TOOL_ICONS: Record<StudioToolId, typeof Zap> = {
+  power: Zap,
+  thermal: Thermometer,
+  bulk: Waves,
+  protect: Shield,
+  harness: Unplug,
+  pcb: Layers,
+  analog: Activity,
+  export: FileDown,
+  can: Cable
+};
 
 function Shell() {
-  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, reset } = useWorkbench();
-  const [tool, setTool] = useState<ToolId>("power");
+  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, reset, tool, openTool } = useWorkbench();
   const steadyTj = Math.max(regulator.valid ? regulator.tj : 0, ...harness.channels.map((row) => row.tjC));
   const inrushTj = harness.channels.reduce((max, row) => Math.max(max, row.tjInrushC), 0);
   const inrushTrips = harness.channels.some((row) => row.part !== undefined && row.tjInrushC >= row.part.tsdC);
@@ -51,15 +48,15 @@ function Shell() {
           </p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-1 lg:flex-col lg:overflow-y-auto" aria-label="Calculators">
-          {TOOLS.map((item) => {
-            const Icon = item.icon;
+          {STUDIO_TOOLS.map((item) => {
+            const Icon = TOOL_ICONS[item.id];
             const active = tool === item.id;
             const accent = item.id === "bulk" || item.id === "can" || item.id === "protect" || item.id === "analog";
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setTool(item.id)}
+                onClick={() => openTool(item.id)}
                 className={cn(
                   "flex min-w-[9.5rem] items-center gap-2 rounded-lg border px-3 py-2 text-left lg:min-w-0",
                   active
