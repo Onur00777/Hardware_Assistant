@@ -1,5 +1,6 @@
 import { formatEditable } from "../format";
-import { createProject, PRESET } from "../preset";
+import { createBoard, createProject, PRESET } from "../preset";
+import { evaluateDesignGate, formatDesignGate } from "../design-gate";
 import { ldoDissipation, partById } from "../components-db";
 import { altiumDelphiScript, altiumJavaScript } from "../altium-script";
 import { altiumRulesCsv, bomCsv, ltspiceCir } from "../exporters";
@@ -234,6 +235,15 @@ check(pascal.includes("CAN_120R") && pascal.includes("USB_90R") && pascal.includ
 const javascript = altiumJavaScript(PRESET);
 check(javascript.includes("function HWPS_ImportRules"), "JavaScript exposes HWPS_ImportRules");
 check(javascript.includes("PCBRuleFactory") && javascript.includes("eRule_Clearance"), "JavaScript writes the PCB rule factory calls");
+
+const vcuGate = evaluateDesignGate(createBoard("vcu"));
+const stressGate = evaluateDesignGate(createBoard("stress"));
+check(stressGate.failed > vcuGate.failed, "stress preset fails more design-gate checks than the VCU");
+check(stressGate.checks.some((item) => item.id === "regulator" && item.status === "fail"), "stress LDO fails the design gate");
+check(stressGate.checks.some((item) => item.id === "bulk" && item.status === "fail"), "stress bulk cap fails the design gate");
+check(stressGate.checks.some((item) => item.id === "middlebrook" && item.status === "fail"), "undamped filter fails the design gate");
+check(formatDesignGate(stressGate, "stress").startsWith("HardwarePowerStudio design gate — HOLD"), "a failing gate formats as HOLD");
+check(vcuGate.checks.every((item) => item.label.length > 0 && item.detail.length > 0), "every design-gate row has a label and a detail");
 
 const active = power.scenarios.active.inputPowerW;
 const idle = power.scenarios.idle.inputPowerW;

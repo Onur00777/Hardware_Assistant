@@ -1,4 +1,5 @@
 export const STUDIO_TOOLS = [
+  { id: "gate", label: "Design gate", detail: "Release" },
   { id: "power", label: "Power tree", detail: "Budget" },
   { id: "thermal", label: "Regulator", detail: "Thermal" },
   { id: "bulk", label: "Bulk cap", detail: "Transient" },

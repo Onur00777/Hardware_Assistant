@@ -43,10 +43,11 @@ src/app/api/altium/*             local rule and BOM bridge
 
 The header reports five live checks for the open preset: 24 V TVS margin, worst junction temperature, LTE droop margin, CAN bit-timing error, and the Middlebrook peak ratio.
 
-### The nine studios
+### The studios
 
 | Studio | Module | What it decides |
 | --- | --- | --- |
+| Design gate | `design-gate.ts` | Release checklist. Each row is a pass, watch, or fail taken from the studios below |
 | Power tree | `engineering/power.ts` | Rail tree, idle / active / mission / peak current, fuse, IPC-2152 source trace |
 | Regulator | `engineering/regulator.ts`, `magnetics.ts` | LDO or buck loss, junction temperature, inductor, MLCC bias |
 | Bulk cap | `engineering/capacitance.ts` | Hold-up through an LTE/GSM current pulse |
@@ -57,7 +58,9 @@ The header reports five live checks for the open preset: 24 V TVS margin, worst 
 | CAN bus | `engineering/can.ts` | Bit timing, sample point, bus and stub length |
 | Export | `exporters.ts`, `altium-script.ts` | LTspice, Altium rules, BOM, dossier |
 
-Magnetics is not a tenth tab. The inductor and the output ceramics sit inside the Regulator studio.
+Magnetics is not its own tab. The inductor and the output ceramics sit inside the Regulator studio.
+
+The design gate does not add a new formula. It reads the fuse 75% rule, rail headroom, power balance, the 115 °C junction line, buck inductor validity, bulk brownout, TVS coverage, the Middlebrook 0.1 ratio, harness drop / thermal / I²t, PCB pair convergence, the 0.5 LSB ADC droop, and CAN timing under 50 ppm. Fail means do not release. Watch means the hard limit still holds. The header link and the Copy verdict button produce the same list a design judge can paste into a review.
 
 ### Power-tree canvas
 

@@ -1,10 +1,12 @@
 "use client";
 
-import { Activity, Cable, FileDown, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
+import { Activity, Cable, ClipboardCheck, FileDown, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
+import { useMemo } from "react";
 import { AnalogStudio } from "@/components/AnalogStudio";
 import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
 import { ExportStudio } from "@/components/ExportStudio";
+import { GateStudio } from "@/components/GateStudio";
 import { HarnessStudio } from "@/components/HarnessStudio";
 import { PcbStudio } from "@/components/PcbStudio";
 import { PowerStudio } from "@/components/PowerStudio";
@@ -14,9 +16,11 @@ import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
 import { fmtTemp } from "@/lib/format";
 import { BOARD_PRESETS, type BoardPresetId } from "@/lib/preset";
+import { designGate } from "@/lib/design-gate";
 import { STUDIO_TOOLS, type StudioToolId } from "@/lib/studio-nav";
 
 const TOOL_ICONS: Record<StudioToolId, typeof Zap> = {
+  gate: ClipboardCheck,
   power: Zap,
   thermal: Thermometer,
   bulk: Waves,
@@ -29,7 +33,12 @@ const TOOL_ICONS: Record<StudioToolId, typeof Zap> = {
 };
 
 function Shell() {
-  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, reset, tool, openTool } = useWorkbench();
+  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, power, pcb, analog, reset, tool, openTool } = useWorkbench();
+  const gate = useMemo(
+    () => designGate({ project, power, regulator, capacitance, protection, harness, pcb, analog, can }),
+    [project, power, regulator, capacitance, protection, harness, pcb, analog, can]
+  );
+  const gateDetail = gate.status === "pass" ? "Release" : gate.status === "watch" ? "Watch" : "Hold";
   const steadyTj = Math.max(regulator.valid ? regulator.tj : 0, ...harness.channels.map((row) => row.tjC));
   const inrushTj = harness.channels.reduce((max, row) => Math.max(max, row.tjInrushC), 0);
   const inrushTrips = harness.channels.some((row) => row.part !== undefined && row.tjInrushC >= row.part.tsdC);
@@ -69,7 +78,7 @@ function Shell() {
                 <Icon size={16} />
                 <span>
                   <span className="block text-sm">{item.label}</span>
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.14em] opacity-70">{item.detail}</span>
+                  <span className="block font-mono text-[10px] uppercase tracking-[0.14em] opacity-70">{item.id === "gate" ? gateDetail : item.detail}</span>
                 </span>
               </button>
             );
@@ -112,9 +121,19 @@ function Shell() {
             <HeaderStat label="CAN Timing Error" value={can.timing.solvable ? `${can.timing.ppm.toFixed(0)} ppm` : "—"} tone={canOk ? "text-emerald-400" : "text-red-400"} />
             <HeaderStat label="Middlebrook Stability" value={protection.peakRatio.toFixed(3)} tone={protection.stable ? "text-emerald-400" : "text-red-400"} />
           </div>
-          <p className="mt-3 text-[11px] text-slate-500">{project.name}</p>
+          <button
+            type="button"
+            onClick={() => openTool("gate")}
+            className="mt-3 text-left font-mono text-[11px] uppercase tracking-[0.14em] text-slate-400 hover:text-slate-200"
+          >
+            Design gate · {gateDetail}
+            {gate.failed > 0 ? ` · ${gate.failed} fail` : ""}
+            {gate.watching > 0 ? ` · ${gate.watching} watch` : ""}
+          </button>
+          <p className="mt-1 text-[11px] text-slate-500">{project.name}</p>
         </header>
         <div className="px-4 py-4 sm:px-6">
+          {tool === "gate" ? <GateStudio /> : null}
           {tool === "power" ? <PowerStudio /> : null}
           {tool === "thermal" ? <RegulatorStudio /> : null}
           {tool === "bulk" ? <CapStudio /> : null}
