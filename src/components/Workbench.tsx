@@ -1,10 +1,11 @@
 "use client";
 
-import { Activity, Cable, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
+import { Activity, Cable, FileDown, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
 import { useState } from "react";
 import { AnalogStudio } from "@/components/AnalogStudio";
 import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
+import { ExportStudio } from "@/components/ExportStudio";
 import { HarnessStudio } from "@/components/HarnessStudio";
 import { PcbStudio } from "@/components/PcbStudio";
 import { PowerStudio } from "@/components/PowerStudio";
@@ -14,7 +15,7 @@ import { cn } from "@/components/ui";
 import { WorkbenchProvider, useWorkbench } from "@/context/WorkbenchContext";
 import { fmtA, fmtTemp, fmtW } from "@/lib/format";
 
-type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb" | "analog";
+type ToolId = "power" | "thermal" | "bulk" | "can" | "protect" | "harness" | "pcb" | "analog" | "export";
 
 const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] = [
   { id: "power", label: "Power tree", detail: "Budget", icon: Zap },
@@ -24,6 +25,7 @@ const TOOLS: { id: ToolId; label: string; detail: string; icon: typeof Zap }[] =
   { id: "harness", label: "Harness", detail: "I²t", icon: Unplug },
   { id: "pcb", label: "PCB", detail: "Impedance", icon: Layers },
   { id: "analog", label: "Analog", detail: "ADC / NTC", icon: Activity },
+  { id: "export", label: "Export", detail: "SPICE / BOM", icon: FileDown },
   { id: "can", label: "CAN bus", detail: "Physical", icon: Cable }
 ];
 
@@ -116,6 +118,7 @@ function Shell() {
           {tool === "harness" ? <HarnessStudio /> : null}
           {tool === "pcb" ? <PcbStudio /> : null}
           {tool === "analog" ? <AnalogStudio /> : null}
+          {tool === "export" ? <ExportStudio /> : null}
           {tool === "can" ? <CanStudio /> : null}
         </div>
       </main>
