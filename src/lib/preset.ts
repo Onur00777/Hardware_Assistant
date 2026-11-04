@@ -117,6 +117,88 @@ export const PRESET: Project = {
     fswHz: 400e3,
     fCrossHz: 0
   },
+  harness: {
+    ta: 40,
+    vRail: 24,
+    vAdcMax: 3.3,
+    channels: [
+      {
+        id: "fan",
+        name: "Radiator fan",
+        switchId: "VNQ7050AJ",
+        packageGroup: "vcu-quad",
+        currentA: 2.5,
+        lengthM: 1.5,
+        areaMm2: 0.75,
+        insulation: "xlpe",
+        fuseA: 5,
+        loadKind: "fan",
+        capacitanceF: 0,
+        inrushMultiple: 4,
+        inrushMs: 200
+      },
+      {
+        id: "pump",
+        name: "Water pump",
+        switchId: "VNQ7050AJ",
+        packageGroup: "vcu-quad",
+        currentA: 3,
+        lengthM: 1.2,
+        areaMm2: 0.75,
+        insulation: "xlpe",
+        fuseA: 7.5,
+        loadKind: "fan",
+        capacitanceF: 0,
+        inrushMultiple: 4,
+        inrushMs: 250
+      },
+      {
+        id: "brake",
+        name: "Brake light",
+        switchId: "VNQ7050AJ",
+        packageGroup: "vcu-quad",
+        currentA: 2,
+        lengthM: 2.5,
+        areaMm2: 0.5,
+        insulation: "pvc",
+        fuseA: 5,
+        loadKind: "lamp",
+        capacitanceF: 0,
+        inrushMultiple: 10,
+        inrushMs: 80
+      },
+      {
+        id: "sdc",
+        name: "Shutdown circuit",
+        switchId: "VNQ7050AJ",
+        packageGroup: "vcu-quad",
+        currentA: 0.4,
+        lengthM: 3,
+        areaMm2: 0.35,
+        insulation: "xlpe",
+        fuseA: 1,
+        loadKind: "resistive",
+        capacitanceF: 0,
+        inrushMultiple: 1,
+        inrushMs: 10
+      },
+      {
+        id: "acc-fans",
+        name: "Accumulator fans",
+        switchId: "BTS7008-2EPA",
+        packageGroup: "accu",
+        currentA: 8,
+        lengthM: 2,
+        areaMm2: 1.5,
+        insulation: "xlpe",
+        fuseA: 15,
+        loadKind: "fan",
+        capacitanceF: 220e-6,
+        inrushMultiple: 5,
+        inrushMs: 300
+      }
+    ]
+  },
   capacitance: {
     vNom: 3.8,
     dropMv: 200,

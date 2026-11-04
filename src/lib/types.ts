@@ -141,6 +141,35 @@ export interface ProtectionInput {
   fCrossHz: number;
 }
 
+export type HarnessLoadKind = "resistive" | "capacitive" | "lamp" | "fan";
+export type WireInsulation = "pvc" | "xlpe";
+
+export interface HarnessChannel {
+  id: string;
+  name: string;
+  switchId: string;
+  /** Channels that share this id share one package and one thermal slug. */
+  packageGroup: string;
+  currentA: number;
+  lengthM: number;
+  areaMm2: number;
+  insulation: WireInsulation;
+  fuseA: number;
+  loadKind: HarnessLoadKind;
+  /** Load capacitance for the capacitive inrush model, farads. */
+  capacitanceF: number;
+  /** Cold-lamp or stall-fan multiple of the steady current. */
+  inrushMultiple: number;
+  inrushMs: number;
+}
+
+export interface HarnessInput {
+  ta: number;
+  vRail: number;
+  vAdcMax: number;
+  channels: HarnessChannel[];
+}
+
 export interface CanInput {
   baud: CanBaud;
   termination: Termination;
@@ -165,6 +194,7 @@ export interface Project {
   regulator: RegulatorInput;
   magnetics: MagneticsInput;
   protection: ProtectionInput;
+  harness: HarnessInput;
   capacitance: CapacitanceInput;
   can: CanInput;
 }
