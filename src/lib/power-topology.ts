@@ -90,7 +90,7 @@ function protectionId(sourceId: string): string {
 /**
  * Board power graph: source, series reverse-polarity / TVS stage, converters, then loads.
  * A node is faulted when its own check trips: regulator junction at the 115 °C shutdown
- * line, LTE bulk below brownout, a high-side switch at thermal shutdown, or a TVS that
+ * line, LTE bulk below brownout or with no catalog network that holds it, a high-side switch at thermal shutdown, or a TVS that
  * cannot stand off or clamp inside the downstream absolute maximum.
  */
 export function buildPowerTopology(input: TopologyInput): TopologyModel {
@@ -107,7 +107,7 @@ export function buildPowerTopology(input: TopologyInput): TopologyModel {
   const regulatorShutdown =
     regulatorRail !== undefined && (!regulator.valid || thermalZone(regulator.tj).id === "shutdown");
   const sim = capacitance.recommendedSim;
-  const droopFault = Boolean(sim && sim.vMin + 1e-9 < capacitance.vBrownout);
+  const droopFault = !capacitance.recommended || Boolean(sim && sim.vMin + 1e-9 < capacitance.vBrownout);
   const droopApplies = droopRail !== undefined && Math.abs(droopRail.voltage - project.capacitance.vNom) <= 0.35;
   const trippedChannels = harness.channels.filter(harnessTrip);
   const harnessFault = trippedChannels.length > 0;

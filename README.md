@@ -66,7 +66,7 @@ The Power tree studio draws the board as a node graph: 24 V feed, series reverse
 A node is green while its own check passes. It pulses red when one of these is true:
 
 - The regulator that matches that rail is at or above the 115 °C shutdown line, or its inputs are not a valid regulating point.
-- The bulk-capacitance rail (the rail nearest the bulk-cap nominal voltage) sags below brownout in the recommended transient.
+- The bulk-capacitance rail (the rail nearest the bulk-cap nominal voltage) sags below brownout, or no catalog network can hold that brownout.
 - A high-side channel on the feed reaches its thermal-shutdown threshold in steady state or inrush.
 - The TVS standoff is below the system maximum, or the clamp voltage is not inside the downstream buck absolute maximum.
 
@@ -361,7 +361,7 @@ All three presets start from the same GLV tree: 24 V source, 5 V buck, 3.3 V LDO
 
 - LDO is a SOT-23 at 55 °C ambient, 0.45 A, and 5 mA quiescent, which pushes the junction through the 115 °C shutdown line.
 - The input filter damper is opened (`Rd = 0`, `Cd = 0`) and the TVS/buck pair is SMBJ33A into an MP2315, so standoff, clamp, or Middlebrook margin fails.
-- Bulk capacitance is asked to hold a 6 A, 2 ms pulse with only 40 mV of droop, a 250 µs loop, 15% MLCC retention, and 35% of the droop given to ESR.
+- Bulk capacitance is asked to hold a 6 A, 2 ms pulse with only 40 mV of droop, a 250 µs loop, 15% MLCC retention, and 35% of the droop given to ESR. No catalog network meets that brownout, so the 3.8 V rail is marked in fault.
 - The brake-light channel inrush multiple is raised to 12 for 80 ms.
 
 ## What the self-check covers

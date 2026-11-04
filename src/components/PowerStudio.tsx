@@ -80,7 +80,7 @@ export function PowerStudio() {
           onOpen={openTool}
         />
         <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-          The canvas is the board power architecture: 24 V feed, reverse-polarity and TVS guard, bucks, LDOs, then loads. Each node shows voltage, RMS current for {SCENARIO_META[scenario].label.toLowerCase()}, efficiency, and thermal status. Green is inside limits. Pulsing red is thermal shutdown, bulk voltage below brownout, or a TVS that cannot stand off or clamp inside the downstream absolute maximum. Click a node to open that calculator.
+          The canvas is the board power architecture: 24 V feed, reverse-polarity and TVS guard, bucks, LDOs, then loads. Each node shows voltage, RMS current for {SCENARIO_META[scenario].label.toLowerCase()}, efficiency, and thermal status. Green is inside limits. Pulsing red is thermal shutdown, bulk voltage below brownout (including no catalog network that holds the rail), or a TVS that cannot stand off or clamp inside the downstream absolute maximum. Click a node to open that calculator.
         </p>
       </Panel>
 
