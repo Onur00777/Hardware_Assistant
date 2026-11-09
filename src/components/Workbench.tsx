@@ -7,6 +7,7 @@ import { CapStudio } from "@/components/CapStudio";
 import { CanStudio } from "@/components/CanStudio";
 import { ExportStudio } from "@/components/ExportStudio";
 import { GateStudio } from "@/components/GateStudio";
+import { WorkspaceBar } from "@/components/WorkspaceBar";
 import { HarnessStudio } from "@/components/HarnessStudio";
 import { PcbStudio } from "@/components/PcbStudio";
 import { PowerStudio } from "@/components/PowerStudio";
@@ -87,33 +88,7 @@ function Shell() {
       </aside>
       <main className="min-w-0">
         <header className="border-b border-white/[0.08] px-4 py-4 sm:px-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <label className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500" htmlFor="board-preset">
-                {dirty ? "Modified profile" : "Board preset"}
-              </label>
-              <select
-                id="board-preset"
-                value={presetId}
-                onChange={(event) => loadPreset(event.target.value as BoardPresetId)}
-                className="mt-1 w-full max-w-3xl rounded-md border border-white/[0.08] bg-black/40 px-2 py-2 text-sm text-slate-100"
-              >
-                {BOARD_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.04]"
-            >
-              <RotateCcw size={13} />
-              Reset preset
-            </button>
-          </div>
+          <WorkspaceBar />
           <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-5">
             <HeaderStat label="24V GLV Margin" value={`${protection.tvs.marginV.toFixed(1)} V`} tone={glvOk ? "text-emerald-400" : "text-red-400"} />
             <HeaderStat label="Worst-Case Junction Temp" value={`${fmtTemp(worstTj)} °C`} tone={worstTj < 100 && !inrushTrips ? "text-emerald-400" : worstTj < 115 && !inrushTrips ? "text-yellow-300" : "text-red-400"} />

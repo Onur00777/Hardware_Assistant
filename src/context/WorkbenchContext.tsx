@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { analyzeCan, type CanResult } from "@/lib/engineering/can";
 import { analyzeAnalog, type AnalogResult } from "@/lib/engineering/analog";
 import { analyzePcb, type PcbResult } from "@/lib/engineering/pcb";
@@ -9,9 +9,19 @@ import { analyzeHarness, type HarnessResult } from "@/lib/engineering/harness";
 import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering/power";
 import { analyzeProtection, type ProtectionResult } from "@/lib/engineering/protection";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
-import { createBoard, type BoardPresetId } from "@/lib/preset";
+import { asProject } from "@/lib/altium-script";
+import { createBoard, createEmptyProject, type BoardPresetId } from "@/lib/preset";
 import type { StudioToolId } from "@/lib/studio-nav";
 import type { AnalogInput, CanInput, CapacitanceInput, HarnessChannel, HarnessInput, Load, MagneticsInput, PcbInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
+
+export interface CustomProjectEntry {
+  id: string;
+  name: string;
+  updatedAt: string;
+  project: Project;
+}
+
+const STORAGE_KEY = "hwps_custom_workspaces_v1";
 
 interface WorkbenchValue {
   project: Project;
@@ -24,10 +34,18 @@ interface WorkbenchValue {
   harness: HarnessResult;
   pcb: PcbResult;
   analog: AnalogResult;
-  presetId: BoardPresetId;
+  presetId: BoardPresetId | "custom";
+  activeCustomId: string | null;
+  customProjects: CustomProjectEntry[];
   tool: StudioToolId;
   openTool: (tool: StudioToolId) => void;
   loadPreset: (id: BoardPresetId) => void;
+  loadCustomProject: (id: string) => void;
+  saveCurrentAsCustom: (name?: string) => void;
+  deleteCustomProject: (id: string) => void;
+  createNewWorkspace: (name?: string) => void;
+  exportProjectJson: () => void;
+  importProjectJson: (json: string) => boolean;
   reset: () => void;
   setTraceRise: (value: number) => void;
   updateRail: (id: string, patch: Partial<Rail>) => void;
@@ -50,10 +68,36 @@ interface WorkbenchValue {
 const WorkbenchContext = createContext<WorkbenchValue | null>(null);
 
 export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
-  const [presetId, setPresetId] = useState<BoardPresetId>("vcu");
+  const [presetId, setPresetId] = useState<BoardPresetId | "custom">("tl27");
+  const [activeCustomId, setActiveCustomId] = useState<string | null>(null);
+  const [customProjects, setCustomProjects] = useState<CustomProjectEntry[]>([]);
   const [tool, setTool] = useState<StudioToolId>("power");
-  const [project, setProject] = useState<Project>(() => createBoard("vcu"));
+  const [project, setProject] = useState<Project>(() => createBoard("tl27"));
   const [dirty, setDirty] = useState(false);
+
+  // Load custom workspaces from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCustomProjects(parsed);
+        }
+      }
+    } catch {
+      // Ignore localStorage read errors in SSR or restricted iframe
+    }
+  }, []);
+
+  const saveToStorage = (updated: CustomProjectEntry[]) => {
+    setCustomProjects(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // Ignore write errors
+    }
+  };
 
   const edit = (recipe: (current: Project) => Project) => {
     setProject((current) => recipe(current));
@@ -76,6 +120,8 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     project,
     dirty,
     presetId,
+    activeCustomId,
+    customProjects,
     tool,
     openTool: setTool,
     power,
@@ -88,11 +134,101 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     analog,
     loadPreset: (id) => {
       setPresetId(id);
+      setActiveCustomId(null);
       setProject(createBoard(id));
       setDirty(false);
     },
+    loadCustomProject: (id) => {
+      const match = customProjects.find((entry) => entry.id === id);
+      if (!match) return;
+      setPresetId("custom");
+      setActiveCustomId(id);
+      setProject(structuredClone(match.project));
+      setDirty(false);
+    },
+    saveCurrentAsCustom: (name) => {
+      const projName = name?.trim() || project.name || "Özel Proje";
+      const now = new Date().toLocaleString("tr-TR");
+      const id = activeCustomId || `workspace-${Date.now()}`;
+      const updatedProject = { ...project, name: projName };
+      const entry: CustomProjectEntry = {
+        id,
+        name: projName,
+        updatedAt: now,
+        project: updatedProject
+      };
+      const filtered = customProjects.filter((p) => p.id !== id);
+      const updated = [entry, ...filtered];
+      saveToStorage(updated);
+      setProject(updatedProject);
+      setPresetId("custom");
+      setActiveCustomId(id);
+      setDirty(false);
+    },
+    deleteCustomProject: (id) => {
+      const updated = customProjects.filter((p) => p.id !== id);
+      saveToStorage(updated);
+      if (activeCustomId === id) {
+        setPresetId("tl27");
+        setActiveCustomId(null);
+        setProject(createBoard("tl27"));
+        setDirty(false);
+      }
+    },
+    createNewWorkspace: (name = "Yeni Donanım Projesi") => {
+      const newProj = createEmptyProject(name);
+      const id = `workspace-${Date.now()}`;
+      const entry: CustomProjectEntry = {
+        id,
+        name,
+        updatedAt: new Date().toLocaleString("tr-TR"),
+        project: newProj
+      };
+      saveToStorage([entry, ...customProjects]);
+      setProject(newProj);
+      setPresetId("custom");
+      setActiveCustomId(id);
+      setDirty(false);
+    },
+    exportProjectJson: () => {
+      const json = JSON.stringify(project, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-project.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    importProjectJson: (jsonStr) => {
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const validated = asProject(parsed);
+        if (!validated) return false;
+        const id = `workspace-${Date.now()}`;
+        const entry: CustomProjectEntry = {
+          id,
+          name: validated.name || "İçe Aktarılan Proje",
+          updatedAt: new Date().toLocaleString("tr-TR"),
+          project: validated
+        };
+        saveToStorage([entry, ...customProjects]);
+        setProject(validated);
+        setPresetId("custom");
+        setActiveCustomId(id);
+        setDirty(false);
+        return true;
+      } catch {
+        return false;
+      }
+    },
     reset: () => {
-      setProject(createBoard(presetId));
+      if (presetId !== "custom") {
+        setProject(createBoard(presetId));
+      } else if (activeCustomId) {
+        const match = customProjects.find((p) => p.id === activeCustomId);
+        if (match) setProject(structuredClone(match.project));
+      }
       setDirty(false);
     },
     setTraceRise: (traceRiseC) => edit((current) => ({ ...current, traceRiseC })),
@@ -119,12 +255,12 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
         const source = current.rails.find((rail) => rail.kind === "source") ?? current.rails[0];
         const rail: Rail = {
           id: `rail-${crypto.randomUUID()}`,
-          name: "New buck",
-          voltage: 12,
+          name: "Yeni Buck",
+          voltage: 5,
           parentId: source?.id ?? null,
           kind: "buck",
           efficiencyPct: 90,
-          iqMa: 0.2
+          iqMa: 0.1
         };
         return { ...current, rails: [...current.rails, rail] };
       }),
@@ -135,10 +271,10 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
         const rail = current.rails.find((item) => item.kind !== "source") ?? current.rails[0];
         const load: Load = {
           id,
-          name: "New load",
+          name: "Yeni Yük",
           railId: rail?.id ?? "",
           mode: "active",
-          currentMa: 10,
+          currentMa: 20,
           dutyPct: 100
         };
         return { ...current, loads: [...current.loads, load] };

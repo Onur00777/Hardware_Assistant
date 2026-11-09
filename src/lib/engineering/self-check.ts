@@ -244,6 +244,10 @@ check(stressGate.checks.some((item) => item.id === "bulk" && item.status === "fa
 check(stressGate.checks.some((item) => item.id === "middlebrook" && item.status === "fail"), "undamped filter fails the design gate");
 check(formatDesignGate(stressGate, "stress").startsWith("HardwarePowerStudio design gate — HOLD"), "a failing gate formats as HOLD");
 check(vcuGate.checks.every((item) => item.label.length > 0 && item.detail.length > 0), "every design-gate row has a label and a detail");
+const tl27Board = createBoard("tl27");
+const tl27Gate = evaluateDesignGate(tl27Board);
+check(tl27Board.rails.length === 4, "TL27 has 4 power rails");
+check(tl27Gate.passed >= 8, "TL27 passes core design checks");
 
 const active = power.scenarios.active.inputPowerW;
 const idle = power.scenarios.idle.inputPowerW;

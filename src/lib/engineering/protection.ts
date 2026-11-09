@@ -47,6 +47,7 @@ export interface TvsPart {
 
 export const TVS_PARTS: TvsPart[] = [
   { id: "SMBJ26A", series: "SMBJ 600 W", vrwm: 26, vbrMin: 28.9, vbrMax: 31.9, vc: 42.1, ipp: 14.3, ppp: 600 },
+  { id: "SMBJ28A", series: "SMBJ 600 W", vrwm: 28, vbrMin: 31.1, vbrMax: 34.4, vc: 45.4, ipp: 13.2, ppp: 600 },
   { id: "SMCJ28A", series: "SMCJ 1500 W", vrwm: 28, vbrMin: 31.1, vbrMax: 34.4, vc: 45.4, ipp: 33, ppp: 1500 },
   { id: "SMBJ33A", series: "SMBJ 600 W", vrwm: 33, vbrMin: 36.7, vbrMax: 40.6, vc: 53.3, ipp: 11.3, ppp: 600 }
 ];
