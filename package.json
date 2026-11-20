@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check:math": "tsx src/lib/engineering/self-check.ts"
+    "check:math": "tsx src/lib/engineering/self-check.ts",
+    "check:versions": "tsx src/lib/version-history.self-check.ts"
   },
   "dependencies": {
     "@xyflow/react": "^12.6.4",
