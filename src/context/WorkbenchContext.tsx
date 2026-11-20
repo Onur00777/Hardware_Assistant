@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { analyzeCan, type CanResult } from "@/lib/engineering/can";
 import { analyzeAnalog, type AnalogResult } from "@/lib/engineering/analog";
 import { analyzePcb, type PcbResult } from "@/lib/engineering/pcb";
@@ -9,19 +9,10 @@ import { analyzeHarness, type HarnessResult } from "@/lib/engineering/harness";
 import { analyzePower, parentChoices, type PowerResult } from "@/lib/engineering/power";
 import { analyzeProtection, type ProtectionResult } from "@/lib/engineering/protection";
 import { analyzeRegulator, type RegulatorResult } from "@/lib/engineering/regulator";
-import { asProject } from "@/lib/altium-script";
+import { LEGACY_STORAGE_KEY, WORKSPACE_STORAGE_KEY, parseProjectBackup, parseVersions, parseWorkspaceStore, type CustomProjectEntry, type ProjectVersion, type VersionDraft, type WorkspaceStore } from "@/lib/version-history";
 import { createBoard, createEmptyProject, type BoardPresetId } from "@/lib/preset";
 import type { StudioToolId } from "@/lib/studio-nav";
 import type { AnalogInput, CanInput, CapacitanceInput, HarnessChannel, HarnessInput, Load, MagneticsInput, PcbInput, Project, ProtectionInput, Rail, RegulatorInput } from "@/lib/types";
-
-export interface CustomProjectEntry {
-  id: string;
-  name: string;
-  updatedAt: string;
-  project: Project;
-}
-
-const STORAGE_KEY = "hwps_custom_workspaces_v1";
 
 interface WorkbenchValue {
   project: Project;
@@ -37,13 +28,19 @@ interface WorkbenchValue {
   presetId: BoardPresetId | "custom";
   activeCustomId: string | null;
   customProjects: CustomProjectEntry[];
+  versions: ProjectVersion[];
+  storageReady: boolean;
+  storageError: string | null;
+  saveVersion: (draft: VersionDraft) => boolean;
+  restoreVersion: (id: string) => void;
+  workspaceKey: string;
   tool: StudioToolId;
   openTool: (tool: StudioToolId) => void;
   loadPreset: (id: BoardPresetId) => void;
   loadCustomProject: (id: string) => void;
-  saveCurrentAsCustom: (name?: string) => void;
-  deleteCustomProject: (id: string) => void;
-  createNewWorkspace: (name?: string) => void;
+  saveCurrentAsCustom: (name?: string) => boolean;
+  deleteCustomProject: (id: string) => boolean;
+  createNewWorkspace: (name?: string) => boolean;
   exportProjectJson: () => void;
   importProjectJson: (json: string) => boolean;
   reset: () => void;
@@ -70,34 +67,56 @@ const WorkbenchContext = createContext<WorkbenchValue | null>(null);
 export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
   const [presetId, setPresetId] = useState<BoardPresetId | "custom">("tl27");
   const [activeCustomId, setActiveCustomId] = useState<string | null>(null);
-  const [customProjects, setCustomProjects] = useState<CustomProjectEntry[]>([]);
+  const [store, setStore] = useState<WorkspaceStore>({ customProjects: [], presetVersions: {} });
+  const storeRef = useRef(store);
+  const storageRaw = useRef<string | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const customProjects = store.customProjects;
   const [tool, setTool] = useState<StudioToolId>("power");
   const [project, setProject] = useState<Project>(() => createBoard("tl27"));
   const [dirty, setDirty] = useState(false);
 
-  // Load custom workspaces from localStorage
+  const workspaceKey = activeCustomId ?? `preset:${presetId}`;
+  const versions = activeCustomId
+    ? customProjects.find(entry => entry.id === activeCustomId)?.versions ?? []
+    : store.presetVersions[presetId] ?? [];
+
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setCustomProjects(parsed);
-        }
-      }
+      const stored = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      const loaded = parseWorkspaceStore(stored !== null ? JSON.parse(stored) : { customProjects: legacy ? JSON.parse(legacy) : [], presetVersions: {} });
+      storageRaw.current = stored;
+      storeRef.current = loaded;
+      setStore(loaded);
+      setStorageReady(true);
     } catch {
-      // Ignore localStorage read errors in SSR or restricted iframe
+      setStorageError("Kayıtlı çalışma alanları okunamadı. Tarayıcı depolama erişimini ve kayıtlı veriyi kontrol edip sayfayı yenileyin.");
     }
   }, []);
 
-  const saveToStorage = (updated: CustomProjectEntry[]) => {
-    setCustomProjects(updated);
+  const persistStore = (updated: WorkspaceStore): boolean => {
+    if (!storageReady) return false;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (localStorage.getItem(WORKSPACE_STORAGE_KEY) !== storageRaw.current) {
+        setStorageError("Kayıtlar başka bir sekmede değişti. Açık tasarımınızı JSON olarak yedekleyip sayfayı yenileyin.");
+        return false;
+      }
+      const json = JSON.stringify(updated);
+      localStorage.setItem(WORKSPACE_STORAGE_KEY, json);
+      storageRaw.current = json;
+      storeRef.current = updated;
+      setStore(updated);
+      setStorageError(null);
+      return true;
     } catch {
-      // Ignore write errors
+      setStorageError("Kaydedilemedi. Tarayıcının depolama alanı dolu veya erişim engelli olabilir. Açık tasarımı ve geçmişini JSON olarak yedekleyebilirsiniz.");
+      return false;
     }
   };
+
+  const saveToStorage = (updated: CustomProjectEntry[]) => persistStore({ ...storeRef.current, customProjects: updated });
 
   const edit = (recipe: (current: Project) => Project) => {
     setProject((current) => recipe(current));
@@ -122,6 +141,38 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     presetId,
     activeCustomId,
     customProjects,
+    versions,
+    storageReady,
+    storageError,
+    workspaceKey,
+    saveVersion: (draft) => {
+      try {
+        const version: ProjectVersion = {
+          id: crypto.randomUUID(), number: draft.number, date: draft.date, title: draft.title.trim(),
+          summary: draft.summary.trim(), createdAt: new Date().toISOString(),
+          snapshot: draft.captureSnapshot ? structuredClone(project) : null
+        };
+        const currentStore = storeRef.current;
+        const currentVersions = activeCustomId
+          ? currentStore.customProjects.find(entry => entry.id === activeCustomId)?.versions ?? []
+          : currentStore.presetVersions[presetId] ?? [];
+        const updatedVersions = parseVersions([...currentVersions, version]);
+        const updated = activeCustomId
+          ? { ...currentStore, customProjects: currentStore.customProjects.map(entry => entry.id === activeCustomId
+            ? { ...entry, versions: updatedVersions } : entry) }
+          : { ...currentStore, presetVersions: { ...currentStore.presetVersions, [presetId]: updatedVersions } };
+        return persistStore(updated);
+      } catch {
+        setStorageError("Sürüm kaydedilemedi. Numara, tarih, başlık ve özeti kontrol edin. Aynı sürüm numarası tekrar kullanılamaz.");
+        return false;
+      }
+    },
+    restoreVersion: (id) => {
+      const snapshot = versions.find(version => version.id === id)?.snapshot;
+      if (!snapshot) return;
+      setProject(structuredClone(snapshot));
+      setDirty(true);
+    },
     tool,
     openTool: setTool,
     power,
@@ -149,49 +200,53 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     saveCurrentAsCustom: (name) => {
       const projName = name?.trim() || project.name || "Özel Proje";
       const now = new Date().toLocaleString("tr-TR");
-      const id = activeCustomId || `workspace-${Date.now()}`;
+      const id = activeCustomId || `workspace-${crypto.randomUUID()}`;
       const updatedProject = { ...project, name: projName };
       const entry: CustomProjectEntry = {
         id,
         name: projName,
         updatedAt: now,
-        project: updatedProject
+        project: updatedProject,
+        versions
       };
       const filtered = customProjects.filter((p) => p.id !== id);
       const updated = [entry, ...filtered];
-      saveToStorage(updated);
+      if (!saveToStorage(updated)) return false;
       setProject(updatedProject);
       setPresetId("custom");
       setActiveCustomId(id);
       setDirty(false);
+      return true;
     },
     deleteCustomProject: (id) => {
       const updated = customProjects.filter((p) => p.id !== id);
-      saveToStorage(updated);
+      if (!saveToStorage(updated)) return false;
       if (activeCustomId === id) {
         setPresetId("tl27");
         setActiveCustomId(null);
         setProject(createBoard("tl27"));
         setDirty(false);
       }
+      return true;
     },
     createNewWorkspace: (name = "Yeni Donanım Projesi") => {
       const newProj = createEmptyProject(name);
-      const id = `workspace-${Date.now()}`;
+      const id = `workspace-${crypto.randomUUID()}`;
       const entry: CustomProjectEntry = {
         id,
         name,
         updatedAt: new Date().toLocaleString("tr-TR"),
         project: newProj
       };
-      saveToStorage([entry, ...customProjects]);
+      if (!saveToStorage([entry, ...customProjects])) return false;
       setProject(newProj);
       setPresetId("custom");
       setActiveCustomId(id);
       setDirty(false);
+      return true;
     },
     exportProjectJson: () => {
-      const json = JSON.stringify(project, null, 2);
+      const json = JSON.stringify({ ...project, versionHistory: versions }, null, 2);
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -203,16 +258,16 @@ export function WorkbenchProvider({ children }: { children: React.ReactNode }) {
     importProjectJson: (jsonStr) => {
       try {
         const parsed = JSON.parse(jsonStr);
-        const validated = asProject(parsed);
-        if (!validated) return false;
-        const id = `workspace-${Date.now()}`;
+        const { project: validated, versions: importedVersions } = parseProjectBackup(parsed);
+        const id = `workspace-${crypto.randomUUID()}`;
         const entry: CustomProjectEntry = {
           id,
           name: validated.name || "İçe Aktarılan Proje",
           updatedAt: new Date().toLocaleString("tr-TR"),
-          project: validated
+          project: validated,
+          versions: importedVersions
         };
-        saveToStorage([entry, ...customProjects]);
+        if (!saveToStorage([entry, ...customProjects])) return false;
         setProject(validated);
         setPresetId("custom");
         setActiveCustomId(id);
