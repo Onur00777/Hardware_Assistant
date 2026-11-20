@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileUp, FolderPlus, Plus, RotateCcw, Save, Trash2, Check, Sparkles } from "lucide-react";
+import { Download, FileUp, FolderPlus, Plus, RotateCcw, Save, Trash2, Check, Sparkles, History } from "lucide-react";
 import { useRef, useState } from "react";
 import { useWorkbench } from "@/context/WorkbenchContext";
 import { BOARD_PRESETS, type BoardPresetId } from "@/lib/preset";
@@ -20,6 +20,10 @@ export function WorkspaceBar() {
     createNewWorkspace,
     exportProjectJson,
     importProjectJson,
+    versions,
+    storageReady,
+    storageError,
+    openTool,
     reset
   } = useWorkbench();
 
@@ -38,7 +42,7 @@ export function WorkspaceBar() {
   const handleCreateNew = (e: React.FormEvent) => {
     e.preventDefault();
     const name = newProjectName.trim() || "Yeni Donanım Kartı";
-    createNewWorkspace(name);
+    if (!createNewWorkspace(name)) return;
     setNewProjectName("");
     setShowNewModal(false);
     showNotification(`"${name}" çalışma alanı oluşturuldu!`);
@@ -47,7 +51,7 @@ export function WorkspaceBar() {
   const handleSaveCurrent = (e: React.FormEvent) => {
     e.preventDefault();
     const name = saveName.trim() || project.name || "Özel Donanım Projesi";
-    saveCurrentAsCustom(name);
+    if (!saveCurrentAsCustom(name)) return;
     setShowSaveModal(false);
     showNotification(`"${name}" kaydedildi!`);
   };
@@ -134,6 +138,15 @@ export function WorkspaceBar() {
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
+            onClick={() => openTool("versions")}
+            className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-200"
+          >
+            <History size={13} />
+            Sürümler {versions.length > 0 ? `· v${versions[versions.length - 1].number}` : ""}
+          </button>
+          <button
+            type="button"
+            disabled={!storageReady}
             onClick={() => {
               setNewProjectName("");
               setShowNewModal(true);
@@ -147,6 +160,7 @@ export function WorkspaceBar() {
 
           <button
             type="button"
+            disabled={!storageReady}
             onClick={() => {
               setSaveName(project.name);
               setShowSaveModal(true);
@@ -207,6 +221,9 @@ export function WorkspaceBar() {
       </div>
 
       {/* Notification Banner */}
+      {storageError ? (
+        <p role="alert" className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{storageError}</p>
+      ) : null}
       {notice ? (
         <div className="flex items-center gap-2 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 animate-fadeIn">
           <Check size={14} className="text-emerald-400" />

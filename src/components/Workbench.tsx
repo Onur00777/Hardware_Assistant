@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Cable, ClipboardCheck, FileDown, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
+import { Activity, Cable, ClipboardCheck, FileDown, History, Layers, RotateCcw, Shield, Thermometer, Unplug, Waves, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { AnalogStudio } from "@/components/AnalogStudio";
 import { CapStudio } from "@/components/CapStudio";
@@ -8,6 +8,7 @@ import { CanStudio } from "@/components/CanStudio";
 import { ExportStudio } from "@/components/ExportStudio";
 import { GateStudio } from "@/components/GateStudio";
 import { WorkspaceBar } from "@/components/WorkspaceBar";
+import { VersionsStudio } from "@/components/VersionsStudio";
 import { HarnessStudio } from "@/components/HarnessStudio";
 import { PcbStudio } from "@/components/PcbStudio";
 import { PowerStudio } from "@/components/PowerStudio";
@@ -21,6 +22,7 @@ import { designGate } from "@/lib/design-gate";
 import { STUDIO_TOOLS, type StudioToolId } from "@/lib/studio-nav";
 
 const TOOL_ICONS: Record<StudioToolId, typeof Zap> = {
+  versions: History,
   gate: ClipboardCheck,
   power: Zap,
   thermal: Thermometer,
@@ -34,7 +36,7 @@ const TOOL_ICONS: Record<StudioToolId, typeof Zap> = {
 };
 
 function Shell() {
-  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, power, pcb, analog, reset, tool, openTool } = useWorkbench();
+  const { project, dirty, presetId, loadPreset, regulator, can, protection, harness, capacitance, power, pcb, analog, reset, tool, openTool, workspaceKey } = useWorkbench();
   const gate = useMemo(
     () => designGate({ project, power, regulator, capacitance, protection, harness, pcb, analog, can }),
     [project, power, regulator, capacitance, protection, harness, pcb, analog, can]
@@ -108,6 +110,7 @@ function Shell() {
           <p className="mt-1 text-[11px] text-slate-500">{project.name}</p>
         </header>
         <div className="px-4 py-4 sm:px-6">
+          {tool === "versions" ? <VersionsStudio key={workspaceKey} /> : null}
           {tool === "gate" ? <GateStudio /> : null}
           {tool === "power" ? <PowerStudio /> : null}
           {tool === "thermal" ? <RegulatorStudio /> : null}
