@@ -2,7 +2,7 @@
 
 Formula Student araçlarının düşük gerilim (GLV) elektroniği için tarayıcı tabanlı tasarım çalışma alanı. Bir kartın güç ağacını kurun, akım ve ısıl sınırlarını inceleyin, ardından sonuçları LTspice, Altium Designer veya tasarım incelemesi için dışa aktarın.
 
-[Kurulum](#kurulum) · [Kullanım](#kullanım) · [Hesaplama araçları](#hesaplama-araçları) · [Dışa aktarma](#dışa-aktarma) · [Geliştirme](#geliştirme)
+[Kurulum](#kurulum) · [Kullanım](#kullanım) · [Sürüm geçmişi](#sürüm-geçmişi) · [Hesaplama araçları](#hesaplama-araçları) · [Dışa aktarma](#dışa-aktarma) · [Geliştirme](#geliştirme)
 
 ## Kurulum
 
@@ -31,6 +31,21 @@ Tarayıcıda [http://localhost:3000](http://localhost:3000) adresini açın. Uyg
 - **IST27 VCU Board** · STM32H745, çift izole CAN, üst taraf sürücüleri ve APPS ile fren basıncı girişleri.
 - **IST27 Telemetry & Datalogger** · STM32H743, Quectel LTE Cat-1, GNSS, SDMMC ve IMU. Regülatör analizi 3,8 V modem rayına odaklanır.
 - **Combined Stress Fault Case** · SOT-23 ısıl sınırı, sönümsüz giriş filtresi ve yetersiz LTE kapasitesi gibi sorunları görünür kılan örnek profil.
+
+## Sürüm geçmişi
+
+Sol menüdeki veya üst çubuktaki **Sürümler** düğmesi, açık projenin geçmişini gösterir. Her kart profili ve özel çalışma alanının kendi sürüm listesi vardır.
+
+1. **Sürüm ekle** ile numara, sürüm tarihi, başlık ve değişiklik özeti girin. TL27 için ilk önerilen numara **v14** olur. Önceki v1–v13 kayıtlarını da kendi tarihleri ve notlarıyla sonradan ekleyebilirsiniz.
+2. **Güncel tasarımın anlık görüntüsünü ekle** seçiliyse, açık tasarımın tüm hesaplama girdileri sürüme eklenir. Geçmişteki bir revizyonu yalnızca notlarıyla belgeliyorsanız bu seçimi kaldırın.
+3. Karşılaştırma bölümünden iki sürüm seçin. Notları yan yana görebilirsiniz. Her ikisinin de tasarım görüntüsü varsa değişen alanlar bölüm, bileşen adı ve birimleriyle gösterilir. Son sürüm için önceki kayıt otomatik seçilir.
+4. **Tasarımı aç** ile kayıtlı bir görüntüyü çalışma taslağına yükleyin. Bu taslağı düzenleyebilir, **Kaydet** ile çalışma alanına yazabilir veya yeni numarayla sürümleyebilirsiniz.
+
+Sürümler numaraya göre sıralanır. Örneğin v14’ten sonra v9 eklemek, sonraki sürüm önerisini v15 olarak tutar. Aynı proje içinde bir sürüm numarası bir kez kullanılabilir. Bir rayın veya yükün listedeki yerinin değişmesi tasarım farkı olarak sayılmaz.
+
+**JSON İndir**, açık tasarımı ve sürüm geçmişini birlikte yedekler. **JSON Yükle**, bu yedeği geçmişiyle birlikte yeni bir çalışma alanı olarak açar. Önceden dışa aktarılmış, sürüm geçmişi içermeyen proje JSON dosyaları da yüklenebilir. Kart profilini **Kaydet** ile özel çalışma alanına dönüştürürken o profilin geçmişi yeni alana kopyalanır.
+
+Kayıtlar tarayıcının yerel depolamasında tutulur. Çalışma alanını kaydetmek ve sürüm oluşturmak iki ayrı işlemdir. **Sürümü kaydet**, seçilen görüntüyü geçmişe ekler. Yerel kayıt başarısız olursa ekranda hata gösterilir. Başka bir sekme kayıtları değiştirmişse açık taslağı JSON olarak yedekleyip sayfayı yenileyin.
 
 ## Hesaplama araçları
 
@@ -93,6 +108,7 @@ Uygulama Next.js App Router, React ve TypeScript kullanır. Arayüz Tailwind CSS
 
 ```bash
 npm run check:math   # Sayısal kontroller ve dışa aktarma kontrolleri
+npm run check:versions # Sürüm doğrulama, JSON uyumluluğu ve tasarım farkları
 npm run lint         # ESLint
 npm run build        # Üretim derlemesi
 npm run start        # Üretim derlemesini yerelde çalıştır
