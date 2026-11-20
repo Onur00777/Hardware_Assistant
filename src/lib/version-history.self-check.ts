@@ -32,8 +32,13 @@ const changes = compareProjects(project, changed);
 assert.equal(changes.length, 2);
 assert.ok(changes.some(item => item.field === "can.baud" && item.before === "500000" && item.after === "250000"));
 assert.ok(changes.some(item => item.field.includes(changed.loads[0].id)));
+assert.ok(changes.some(item => item.label === "Bit hızı (bit/s)"));
+assert.ok(changes.some(item => item.label.includes(changed.loads[0].name)));
 changed.rails.push({ ...changed.rails[1], id: "new-rail", name: "New rail" });
 assert.ok(compareProjects(project, changed).some(item => item.field === "rails[new-rail].name" && item.before === "Eklenmemiş"));
 changed.loads.pop();
 assert.ok(compareProjects(project, changed).some(item => item.after === "Silinmiş"));
+assert.deepEqual(parseWorkspaceStore(JSON.parse(JSON.stringify({
+  customProjects: [{ ...legacy, versions: [version] }], presetVersions: { tl27: [{ ...version, snapshot: null }] }
+}))).presetVersions.tl27[0].snapshot, null);
 console.log("Version history checks passed.");

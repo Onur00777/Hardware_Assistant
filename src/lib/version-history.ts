@@ -79,6 +79,7 @@ export function parseProjectBackup(value: unknown): { project: Project; versions
 export interface VersionChange {
   section: string;
   field: string;
+  label: string;
   before: string;
   after: string;
 }
@@ -88,6 +89,54 @@ const SECTIONS: Record<string, string> = {
   magnetics: "Bobin ve MLCC", protection: "Koruma", harness: "Kablo ve sürücüler", pcb: "PCB",
   analog: "Analog", capacitance: "Bulk kapasite", can: "CAN bus"
 };
+
+const FIELDS: Record<string, string> = {
+  name: "Ad", traceRiseC: "İzin verilen iz sıcaklık artışı (°C)", id: "Kimlik", kind: "Tür", parentId: "Üst ray",
+  voltage: "Gerilim (V)", efficiencyPct: "Verim (%)", iqMa: "Boşta tüketim (mA)", railId: "Besleme rayı",
+  mode: "Çalışma modu", currentMa: "Yük akımı (mA)", dutyPct: "Görev oranı (%)", architecture: "Mimari",
+  vin: "Giriş gerilimi (V)", vout: "Çıkış gerilimi (V)", iout: "Çıkış akımı (A)", ta: "Ortam sıcaklığı (°C)",
+  packageId: "Paket", rthOverride: "Isıl direnç (°C/W)", fswKhz: "Anahtarlama frekansı (kHz)",
+  rdsHsMo: "Üst MOSFET RDS(on) (mΩ)", rdsLsMo: "Alt MOSFET RDS(on) (mΩ)", trNs: "Yükselme süresi (ns)",
+  tfNs: "Düşme süresi (ns)", tDeadNs: "Ölü zaman (ns)", vsd: "Diyot gerilimi (V)", dcrMo: "Bobin DCR (mΩ)",
+  qgNc: "Gate yükü (nC)", vdrive: "Gate sürme gerilimi (V)", rippleFraction: "Dalgalanma oranı", satMargin: "Doyum marjı",
+  tempC: "Sıcaklık (°C)", inductorId: "Bobin", volumeCm3: "Çekirdek hacmi (cm³)", mlccCase: "MLCC boyutu",
+  mlccDielectric: "MLCC dielektrik", cNomUf: "Nominal kapasite (µF)", vRated: "Anma gerilimi (V)",
+  vdc: "DC bias (V)", esrMo: "ESR (mΩ)", mlccCount: "MLCC adedi", mlccTempC: "MLCC sıcaklığı (°C)",
+  vNom: "Nominal gerilim (V)", dropMv: "İzin verilen gerilim düşümü (mV)", iPeak: "Tepe akımı (A)",
+  burstUs: "Darbe süresi (µs)", responseUs: "Regülatör tepki süresi (µs)", esrFraction: "ESR bütçe oranı",
+  mlccRetention: "MLCC etkin kapasite oranı", iRms: "RMS akım (A)", systemV: "Sistem gerilimi (V)",
+  vSystemMax: "En yüksek sistem gerilimi (V)", tvsId: "TVS", buckId: "Buck", pmosRdsOhm: "PMOS RDS(on) (Ω)",
+  pmosRdsHotOhm: "Sıcak PMOS RDS(on) (Ω)", lH: "Filtre bobini (H)", cF: "Filtre kapasitesi (F)",
+  rlOhm: "Filtre bobini DCR (Ω)", cdF: "Sönümleme kapasitesi (F)", rdOhm: "Sönümleme direnci (Ω)",
+  lCoilH: "Röle bobini (H)", iCoilA: "Röle akımı (A)", pout: "Çıkış gücü (W)", eta: "Verim oranı",
+  fswHz: "Anahtarlama frekansı (Hz)", fCrossHz: "Döngü geçiş frekansı (Hz)", vRail: "Ray gerilimi (V)",
+  vAdcMax: "ADC üst gerilimi (V)", switchId: "Üst taraf anahtarı", packageGroup: "Ortak paket",
+  currentA: "Akım (A)", lengthM: "Kablo uzunluğu (m)", areaMm2: "Kablo kesiti (mm²)", insulation: "Yalıtım",
+  fuseA: "Sigorta (A)", loadKind: "Yük türü", capacitanceF: "Yük kapasitesi (F)",
+  inrushMultiple: "İlk akım çarpanı", inrushMs: "İlk akım süresi (ms)", riseC: "Sıcaklık artışı (°C)",
+  oz: "Bakır ağırlığı (oz)", viaDrillMm: "Via delik çapı (mm)", stackupId: "Katman yapısı", grid: "Via dizisi",
+  thermalPackage: "Isıl paket", rPlane: "Düzlem ısıl direnci (°C/W)", platingUm: "Via kaplaması (µm)",
+  vinSense: "Ölçülen giriş (V)", vAdcTarget: "ADC hedefi (V)", series: "Direnç serisi", r2Ohm: "Alt direnç (Ω)",
+  vref: "Referans gerilimi (V)", bits: "ADC çözünürlüğü (bit)", cAdcF: "ADC kapasitesi (F)",
+  rAdcOhm: "ADC anahtar direnci (Ω)", cFiltF: "ADC filtre kapasitesi (F)", tSampleUs: "Örnekleme süresi (µs)",
+  ntcR0: "NTC nominal direnci (Ω)", ntcBeta: "NTC beta (K)", ntcT0C: "NTC referans sıcaklığı (°C)",
+  rFixed: "NTC sabit direnci (Ω)", useSteinhart: "Steinhart–Hart modeli", shA: "Steinhart–Hart A",
+  shB: "Steinhart–Hart B", shC: "Steinhart–Hart C", baud: "Bit hızı (bit/s)", termination: "Sonlandırma",
+  splitCapNf: "Split kapasite (nF)", clockMhz: "CAN saati (MHz)", samplePointPct: "Örnekleme noktası (%)",
+  mcu: "CAN denetleyicisi", busLengthM: "Hat uzunluğu (m)", stubLengthM: "Dal uzunluğu (m)", trxDelayNs: "Transceiver gecikmesi (ns)"
+};
+
+function changeLabel(field: string, before: Project, after: Project): string {
+  const entity = /^(rails|loads|harness\.channels)\[([^\]]+)\]\.(.+)$/.exec(field);
+  const leaf = field.split(".").at(-1) ?? field;
+  const label = FIELDS[leaf] ?? leaf;
+  if (!entity) return label;
+  const [, collection, id] = entity;
+  const lists = collection === "rails" ? [after.rails, before.rails]
+    : collection === "loads" ? [after.loads, before.loads] : [after.harness.channels, before.harness.channels];
+  const item = lists.flat().find(row => row.id === id);
+  return `${item?.name ?? id} · ${label}`;
+}
 
 function flatten(value: unknown, path: string, result: Map<string, string>) {
   if (Array.isArray(value)) {
@@ -109,7 +158,7 @@ export function compareProjects(before: Project, after: Project): VersionChange[
   for (const field of new Set([...left.keys(), ...right.keys()])) {
     if (left.get(field) === right.get(field)) continue;
     const root = field.split(/[.[]/)[0];
-    changes.push({ section: SECTIONS[root] ?? root, field, before: left.get(field) ?? "Eklenmemiş", after: right.get(field) ?? "Silinmiş" });
+    changes.push({ section: SECTIONS[root] ?? root, field, label: changeLabel(field, before, after), before: left.get(field) ?? "Eklenmemiş", after: right.get(field) ?? "Silinmiş" });
   }
   return changes;
 }

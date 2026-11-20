@@ -176,7 +176,7 @@ export function VersionsStudio() {
                   {sections.map(section => <section key={section} className="space-y-2">
                     <h3 className="text-xs font-medium uppercase tracking-wider text-slate-400">{section}</h3>
                     {changes.filter(change => change.section === section).map(change => <div key={change.field} className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
-                      <p className="break-all font-mono text-[11px] text-slate-400">{change.field}</p>
+                      <p className="break-words text-xs text-slate-400">{change.label}</p>
                       <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
                         <p className="break-words text-rose-200"><span className="mr-2 text-[11px] text-slate-500">v{base.number}</span>{change.before}</p>
                         <p className="break-words text-emerald-200"><span className="mr-2 text-[11px] text-slate-500">v{selected.number}</span>{change.after}</p>
